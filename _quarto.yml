@@ -1,0 +1,18 @@
+project:
+  type: website
+  output-dir: docs
+  
+website:
+  tittle: "STA9750 2024 Submission Materials"
+  description:
+    Course Projects for STA 9750 at Baruch College
+  site-url: "http://Timbila614.github.io/STA9750-2024-FALL/"
+  navbar:
+    background: primary
+    search:fasle
+    
+format:
+  html:
+    theme: <minty>
+    toc: flase
+  
