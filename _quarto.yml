@@ -3,16 +3,16 @@ project:
   output-dir: docs
   
 website:
-  tittle: "STA9750 2024 Submission Materials"
+  title: "STA9750 2024 Submission Materials"
   description:
     Course Projects for STA 9750 at Baruch College
-  site-url: "http://Timbila614.github.io/STA9750-2024-FALL/"
+  site-url: "https://Timbila614.github.io/STA9750-2024-FALL/"
   navbar:
     background: primary
-    search:fasle
+    search: false
     
 format:
   html:
-    theme: <minty>
-    toc: flase
+    theme: sandstone
+    toc: false
   
