@@ -19,8 +19,10 @@ The data used in this analysis includes the following:
 1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
 
 ```{r}
+#|echo: false
 #|include: FALSE
 #|message: False
+#|results: "hide"
 if(!require("tidyverse")) install.packages("tidyverse")
 
 library(tidyverse)
@@ -372,7 +374,7 @@ head(highest_fares_per_UPT, 1)
 
 9.  Transit with the lowest expense per VRM
 
-With a cost of **$51.03** per `VRM`, The **Delaware Transit Corporation (Motorbus)** haS the lowest expenses. Suggesting that their bus operations are particularly cost-efficient in relation to the distance their vehicles travel.
+With a cost of **\$51.03** per `VRM`, The **Delaware Transit Corporation (Motorbus)** haS the lowest expenses. Suggesting that their bus operations are particularly cost-efficient in relation to the distance their vehicles travel.
 
 ```{r}
 
