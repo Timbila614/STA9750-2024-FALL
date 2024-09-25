@@ -2,11 +2,9 @@
 
 ## Fiscal Characteristics of Major US Public Transit Systems
 
-Timbila Nikiema
+#### Timbila Nikiema
 
 # Introduction
-
-Introduction
 
 This report provides a comprehensive analysis of transit data from 2022, focusing on several key areas including fare revenues, expenses, transit usage, and performance across various agencies and modes of transportation in the United States. The tasks performed in the analysis explore trends in unlinked passenger trips (`UPT`), vehicle revenue miles (`VRM`), fare-box recovery ratios, and cost efficiency in terms of expenses per UPT. Data was collected from public sources, including the U.S. Department of Transportation, and processed using R to draw meaningful insights.
 
@@ -14,9 +12,7 @@ This report provides a comprehensive analysis of transit data from 2022, focusin
 
 The data used in this analysis includes the following:
 
-+**Fare Revenue Data**: Contains information on fare revenue earned by various transit systems. 
-+**Expense Data**: Contains financial information related to transit expenses. 
-+**Ridership Data**: Contains monthly figures on unlinked passenger trips (`UPT`) and vehicle revenue miles (`VRM`) for different transit agencies and modes.
+\+**Fare Revenue Data**: Contains information on fare revenue earned by various transit systems. +**Expense Data**: Contains financial information related to transit expenses. +**Ridership Data**: Contains monthly figures on unlinked passenger trips (`UPT`) and vehicle revenue miles (`VRM`) for different transit agencies and modes.
 
 1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
 
@@ -185,8 +181,7 @@ By cleaning, transforming, and merging these data sets, we will now compute key 
 
 # Results
 
-1.  Transit Agency with the Most Vehicle Revenue Miles (`VRM`)
-The **MTA New York City Transit** recorded the highest total VRM in 2022 with **10,832,855,350** miles. Demonstrating the scale of New York City’s transit system compared to others.
+1.  Transit Agency with the Most Vehicle Revenue Miles (`VRM`) The **MTA New York City Transit** recorded the highest total VRM in 2022 with **10,832,855,350** miles. Demonstrating the scale of New York City’s transit system compared to others.
 
 ```{R}
 # Summarize VRM by agency and find the agency with the highest total VRM
@@ -198,8 +193,7 @@ agency_max_vrm <- USAGE |>
 head(agency_max_vrm, 1) # View the top agency
 ```
 
-2.  Transit Mode with the Most Vehicle Revenue Miles (`VRM`) 
-The **Motorbus** mode had the highest total VRM across all agencies, contributing **49,444,494,088** miles. This indicates that motorbuses are a heavily utilized mode of public transportation nationwide.
+2.  Transit Mode with the Most Vehicle Revenue Miles (`VRM`) The **Motorbus** mode had the highest total VRM across all agencies, contributing **49,444,494,088** miles. This indicates that motorbuses are a heavily utilized mode of public transportation nationwide.
 
 ```{r}
 mode_max_vrm <- USAGE |>
@@ -282,8 +276,6 @@ FINANCIALS <- FINANCIALS |>
     TRUE ~ "Unknown")) |>
     mutate(`NTD ID` = as.character(`NTD ID`)) # joining Integer and Character type data is impossible, So I converted NTD ID data type to match USAGE_2022_ANNUAL
 
-USAGE_AND_FINANCIALS
-
 
 # We are now merging the USAGE_2022_ANNUAL and FINANCIALS tables
 USAGE_AND_FINANCIALS <- left_join(USAGE_2022_ANNUAL, 
@@ -323,7 +315,7 @@ head(highest_farebox_recovery, 1)
 
 ```
 
-7.  Transit System with the Lowest Expenses per `UPT` **University of Georgia (Motorbus)** had the lowest expenses per UPT at **$14.90**. This suggests that the university’s motorbus system operates at a lower cost per passenger compared to other major systems.
+7.  Transit System with the Lowest Expenses per `UPT` **University of Georgia (Motorbus)** had the lowest expenses per UPT at **\$14.90**. This suggests that the university’s motorbus system operates at a lower cost per passenger compared to other major systems.
 
 ```{R}
 # Find the transit system with the lowest expenses per UPT (Expenses / UPT)
@@ -336,7 +328,7 @@ head(lowest_expenses_per_UPT, 1)
 
 ```
 
-8.  Transit System with the Highest Fares per `UPT` The **Metro-North Commuter Railroad (Commuter Rail)** had the highest total fares per `UPT`, with **$98.65 per trip**. This is indicative of higher fares typically charged on long-distance commuter services.
+8.  Transit System with the Highest Fares per `UPT` The **Metro-North Commuter Railroad (Commuter Rail)** had the highest total fares per `UPT`, with **\$98.65 per trip**. This is indicative of higher fares typically charged on long-distance commuter services.
 
 ```{r}
 # Find the transit system with the highest total fares per UPT (Total Fares / UPT)
@@ -362,7 +354,7 @@ head(lowest_expenses_per_VRM, 1)
 
 ```
 
-10. Transit System with the Highest Fares per `VRM` The *Washington State Ferries (Ferryboat)* system had the highest total fares per `VRM`, with **$937.00**. Ferries typically have high operating costs and therefore charge higher fares per mile traveled.
+10. Transit System with the Highest Fares per `VRM` The *Washington State Ferries (Ferryboat)* system had the highest total fares per `VRM`, with **\$937.00**. Ferries typically have high operating costs and therefore charge higher fares per mile traveled.
 
 ```{r}
  # Find the transit system with the highest total fares per VRM (Total Fares / VRM)

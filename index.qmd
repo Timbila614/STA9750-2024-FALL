@@ -1,11 +1,304 @@
-# Timbila NIKIEMA
+if(!require("tidyverse")) install.packages("tidyverse")
 
-----
+library(tidyverse)
+if(!file.exists("2022_fare_revenue.xlsx")){
+  download.file("http://www.transit.dot.gov/sites/fta.dot.gov/files/2024-04/2022%20Fare%20Revenue.xlsx", 
+                destfile="2022_fare_revenue.xlsx", 
+                quiet=FALSE, 
+                method="wget")
+}
+FARES <- readxl::read_xlsx("2022_fare_revenue.xlsx") |>
+  select(-`State/Parent NTD ID`, 
+         -`Reporter Type`,
+         -`Reporting Module`,
+         -`TOS`,
+         -`Passenger Paid Fares`,
+         -`Organization Paid Fares`) |>
+  filter(`Expense Type` == "Funds Earned During Period") |>
+  select(-`Expense Type`)
 
-Hello and welcome to my page!
+if(!file.exists("2022_expenses.csv")){
+  download.file("https://data.transportation.gov/api/views/dkxx-zjd6/rows.csv?date=20231102&accessType=DOWNLOAD&bom=true&format=true", 
+                destfile="2022_expenses.csv", 
+                quiet=FALSE, 
+                method="wget")
+}
+EXPENSES <- readr::read_csv("2022_expenses.csv") |>
+  select(`NTD ID`, 
+         `Agency`,
+         `Total`, 
+         `Mode`) |>
+  mutate(`NTD ID` = as.integer(`NTD ID`)) |>
+  rename(Expenses = Total) |>
+  group_by(`NTD ID`, `Mode`) |>
+  summarize(Expenses = sum(Expenses)) |>
+  ungroup()
 
-My name is Timbila Nikiema, and I have built a solid educational foundation in finance, complemented by a growing expertise in quantitative analysis. I earned my Bachelor of Business Administration with a major in Finance from Baruch College's Zicklin School of Business, where I developed a strong analytical mindset and a passion for financial modeling.
+FINANCIALS <- inner_join(FARES, EXPENSES, join_by(`NTD ID`, `Mode`))
 
-Currently, I am furthering my education by pursuing a Master of Science in Quantitative Methods and Modeling at Baruch College. This advanced degree is enhancing my ability to apply complex quantitative techniques to real-world financial challenges.
+## Narrative 3: Finally, we join the FARES and EXPENSES tables to create the FINANCIALS table.
 
-In my professional roles as a Senior Financial Analyst at St. Barnabas Health System and a Senior Corporate Financial Analyst at Northwell Health, I have gained valuable experience in financial analysis, budget management, and strategic planning. These experiences have solidified my commitment to using data-driven insights to support organizational success.
+# Monthly Transit Numbers
+library(tidyverse)
+if(!file.exists("ridership.xlsx")){
+  # This should work _in theory_ but in practice it's still a bit finicky
+  # If it doesn't work for you, download this file 'by hand' in your
+  # browser and save it as "ridership.xlsx" in your project
+  # directory.
+  download.file("https://www.transit.dot.gov/sites/fta.dot.gov/files/2024-09/July%202024%20Complete%20Monthly%20Ridership%20%28with%20adjustments%20and%20estimates%29_240903.xlsx", 
+                destfile="ridership.xlsx", 
+                quiet=FALSE, 
+                method="wget")
+}
+TRIPS <- readxl::read_xlsx("ridership.xlsx", sheet="UPT") |>
+  filter(`Mode/Type of Service Status` == "Active") |>
+  select(-`Legacy NTD ID`, 
+         -`Reporter Type`, 
+         -`Mode/Type of Service Status`, 
+         -`UACE CD`, 
+         -`TOS`) |>
+  pivot_longer(-c(`NTD ID`:`3 Mode`), 
+               names_to="month", 
+               values_to="UPT") |>
+  drop_na() |>
+  mutate(month=my(month)) # Parse _m_onth _y_ear date specs
+MILES <- readxl::read_xlsx("ridership.xlsx", sheet="VRM") |>
+  filter(`Mode/Type of Service Status` == "Active") |>
+  select(-`Legacy NTD ID`, 
+         -`Reporter Type`, 
+         -`Mode/Type of Service Status`, 
+         -`UACE CD`, 
+         -`TOS`) |>
+  pivot_longer(-c(`NTD ID`:`3 Mode`), 
+               names_to="month", 
+               values_to="VRM") |>
+  drop_na() |>
+  group_by(`NTD ID`, `Agency`, `UZA Name`, 
+           `Mode`, `3 Mode`, month) |>
+  summarize(VRM = sum(VRM)) |>
+  ungroup() |>
+  mutate(month=my(month)) # Parse _m_onth _y_ear date specs
+
+USAGE <- inner_join(TRIPS, MILES) |>
+  mutate(`NTD ID` = as.integer(`NTD ID`))
+
+## let's create the table USAGE
+if(!require("DT")) install.packages("DT")
+library(DT)
+
+sample_n(USAGE, 1000) |> 
+  mutate(month=as.character(month)) |> 
+  DT::datatable()
+
+# Beginning of Tasks Codes
+
+# Task 00: Creating Syntatic Names
+# Rename column: UZA Name to metro_area
+library(tidyverse)
+USAGE <- USAGE |>
+  rename(metro_area = `UZA Name`)
+
+# let's check if the column has been renamed
+head(USAGE)
+
+# Task 00: Recording the mode column
+## let's find unique mode codes in our data
+unique_modes <- USAGE %>%
+  distinct(Mode)
+
+print(unique_modes)
+
+## let's now record the Mode column. Note: there are 18 unique Modes
+USAGE <- USAGE |>
+  mutate(Mode = case_when(
+    Mode == "DR" ~ "Demand Response",
+    Mode == "MB" ~ "Motorbus",
+    Mode == "CR" ~ "Commuter Rail",
+    Mode == "CC" ~ "Cable Car",
+    Mode == "LR" ~ "Light Rail",
+    Mode == "PB" ~ "Publico",
+    Mode == "SR" ~ "Streetcar Rail",
+    Mode == "VP" ~ "Vanpool",
+    Mode == "CB" ~ "Commuter Bus",
+    Mode == "TB" ~ "Trolleybus",
+    Mode == "FB" ~ "Ferryboat",
+    Mode == "TR" ~ "Aerial Tramway",
+    Mode == "HR" ~ "Heavy Rail",
+    Mode == "MG" ~ "Monorail/Automated Guideway",
+    Mode == "RB" ~ "Bus Rapid Transit",
+    Mode == "OR" ~ "Other Rail",
+    Mode == "YR" ~ "Hybrid Rail",
+    Mode == "AR" ~ "Alaska Railroad",
+    Mode == "IP" ~ "Inclined Plane",
+    TRUE ~ "Unknown"))
+
+if(!require("DT")) install.packages("DT")
+library(DT)
+
+sample_n(USAGE, 1000) |> 
+  select(-`NTD ID`, -`3 Mode`)|>
+  mutate(`Passenger Trips` = UPT, `Vehicle Miles`= VRM)|>
+  mutate(month=as.character(month)) |> 
+  DT::datatable()
+
+view(sample_n)
+
+##  Task 1. What transit agency had the most total VRM in our data set?
+  # Summarize VRM by agency and find the agency with the highest total VRM
+agency_max_vrm <- USAGE |>
+  group_by(Agency) |>
+  summarize(total_VRM = sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(total_VRM))
+
+head(agency_max_vrm, 1) # View the top agency
+
+## Task 2. What transit mode had the most total VRM in our data set?
+  # Summarize VRM by mode and find the mode with the highest total VRM
+mode_max_vrm <- USAGE |>
+  group_by(Mode) |>
+  summarize(total_VRM = sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(total_VRM))
+
+head(mode_max_vrm, 1) # View the top mode
+
+
+## Task 3. How many trips were taken on the NYC Subway (Heavy Rail) in May 2024?
+  # Filter for NYC Subway, Heavy Rail, and May 2024
+nyc_subway_may_2024 <- USAGE |>
+  filter(Agency == "MTA New York City Transit",
+         Mode == "Heavy Rail",
+         month == as.Date("2024-05-01"))
+
+# Sum the UPT (Unlinked Passenger Trips) for May 2024
+total_trips_may_2024 <- sum(nyc_subway_may_2024$UPT, na.rm = TRUE)
+
+# Display the total trips
+total_trips_may_2024
+
+## Task 4 Additional Analysis
+  # Let's find which Agency has the most active transit by finding the transit agency with the most number of trips
+most_active_agency <- USAGE |>
+  group_by(Agency) |>
+  summarize(total_UPT = sum(UPT, na.rm = TRUE)) |>
+  arrange(desc(total_UPT))
+
+head(most_active_agency, 1)
+
+# let's try to compute a Monthly Trend in Ridership
+library(ggplot2)
+
+monthly_ridership_trend <- USAGE |>
+  filter(Mode == "Heavy Rail") |>
+  group_by(month) |>
+  summarize(total_UPT = sum(UPT, na.rm = TRUE))
+
+ggplot(monthly_ridership_trend, aes(x = month, y = total_UPT)) +
+  geom_line() + 
+  labs(title = "Monthly Ridership Trend for Haivy Rail",
+       x = "Month",
+       y = "Total Unlinked Passenger Trips (UPT)") +
+       theme_minimal()
+
+## Task 5: Table Summarization
+  # Let's create a new table from USAGE with the following fields: NTD IS, Agency, Metro_area, Mode, UPT, VRM
+library(dplyr)
+library(lubridate)
+
+USAGE_2022_ANNUAL <- USAGE |>
+  group_by(`NTD ID`, month, Agency, metro_area, Mode) |>
+  summarize(
+    UPT = sum(UPT, na.rm = TRUE),
+    VRM = sum(VRM, na.rm = TRUE)
+  ) |>
+  ungroup()
+
+view(USAGE_2022_ANNUAL)
+
+# It looks like we need to update the Mode values to match USAGE_2022_ANNUAL
+FINANCIALS <- FINANCIALS |>
+  mutate(Mode = case_when(
+    Mode == "DR" ~ "Demand Response",
+    Mode == "MB" ~ "Motorbus",
+    Mode == "CR" ~ "Commuter Rail",
+    Mode == "CC" ~ "Cable Car",
+    Mode == "LR" ~ "Light Rail",
+    Mode == "PB" ~ "Publico",
+    Mode == "SR" ~ "Streetcar Rail",
+    Mode == "VP" ~ "Vanpool",
+    Mode == "CB" ~ "Commuter Bus",
+    Mode == "TB" ~ "Trolleybus",
+    Mode == "FB" ~ "Ferryboat",
+    Mode == "TR" ~ "Aerial Tramway",
+    Mode == "HR" ~ "Heavy Rail",
+    Mode == "MG" ~ "Monorail/Automated Guideway",
+    Mode == "RB" ~ "Bus Rapid Transit",
+    Mode == "OR" ~ "Other Rail",
+    Mode == "YR" ~ "Hybrid Rail",
+    Mode == "AR" ~ "Alaska Railroad",
+    Mode == "IP" ~ "Inclined Plane",
+    TRUE ~ "Unknown"))
+
+# We are now merging the USAGE_2022_ANNUAL and FINANCIALS tables
+USAGE_AND_FINANCIALS <- left_join(USAGE_2022_ANNUAL,
+                                   FINANCIALS,
+                                   join_by(`NTD ID`, Mode)) |>
+  drop_na()
+
+view(USAGE_AND_FINANCIALS)
+
+## Task 6.1. Which transit system (agency and mode) had the most UPT in 2022?
+    # First let's filter for major transit with more than 400,000 UPT per annum in 2022
+major_system <- USAGE_AND_FINANCIALS |>
+  filter(year(month) == 2022, UPT > 400000)
+
+most_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(total_UPT =sum(UPT, na.rm =TRUE)) |>
+  arrange(desc(total_UPT))
+
+head(most_UPT, 1)
+
+## Task 6.2. Which transit system (agency and mode) had the highest farebox recovery, defined as the highest ratio of Total Fares to Expenses?
+# Find the transit system with the highest farebox recovery ratio (Total Fares / Expenses)
+highest_farebox_recovery <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(farebox_recovery = sum(`Total Fares`, na.rm = TRUE) / sum(Expenses, na.rm = TRUE)) |>
+  arrange(desc(farebox_recovery))
+
+head(highest_farebox_recovery, 1)
+
+## Task 6.3. Which transit system (agency and mode) has the lowest expenses per UPT?
+# Find the transit system with the lowest expenses per UPT (Expenses / UPT)
+lowest_expenses_per_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(expenses_per_UPT = sum(Expenses, na.rm = TRUE) / sum(UPT, na.rm = TRUE)) |>
+  arrange(expenses_per_UPT)
+ 
+head(lowest_expenses_per_UPT, 1)
+
+## 6.4. Which transit system (agency and mode) has the highest total fares per UPT?
+  # Find the transit system with the highest total fares per UPT (Total Fares / UPT)
+highest_fares_per_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(fares_per_UPT = sum(`Total Fares`, na.rm = TRUE) / sum(UPT, na.rm = TRUE)) |>
+  arrange(desc(fares_per_UPT))
+
+head(highest_fares_per_UPT, 1)
+
+## Task 6.5. Which transit system (agency and mode) has the lowest expenses per VRM?
+  # Find the transit system with the lowest expenses per VRM (Expenses / VRM)
+lowest_expenses_per_VRM <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(expenses_per_VRM = sum(Expenses, na.rm = TRUE) / sum(VRM, na.rm = TRUE)) |>
+  arrange(expenses_per_VRM)
+
+head(lowest_expenses_per_VRM, 1)
+
+## 6.6. Which transit system (agency and mode) has the highest total fares per VRM?Which transit system (agency and mode) has the highest total fares per VRM?
+  # Find the transit system with the highest total fares per VRM (Total Fares / VRM)
+highest_fares_per_VRM <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(fares_per_VRM = sum(`Total Fares`, na.rm = TRUE) / sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(fares_per_VRM))
+
+head(highest_fares_per_VRM, 1)
