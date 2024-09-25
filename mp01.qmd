@@ -1,0 +1,412 @@
+# MINI PROJECT 01
+
+## Fiscal Characteristics of Major US Public Transit Systems
+
+#### Timbila Nikiema
+
+# Introduction
+
+This report provides a comprehensive analysis of transit data from 2022, focusing on several key areas including fare revenues, expenses, transit usage, and performance across various agencies and modes of transportation in the United States. The tasks performed in the analysis explore trends in unlinked passenger trips (`UPT`), vehicle revenue miles (`VRM`), fare-box recovery ratios, and cost efficiency in terms of expenses per UPT. Data was collected from public sources, including the U.S. Department of Transportation, and processed using R to draw meaningful insights.
+
+# Data Overview
+
+The data used in this analysis includes the following:
+
+-   **Fare Revenue Data**: Contains information on fare revenue earned by various transit systems.
+-   **Expense Data**: Contains financial information related to transit expenses.
+-   **Ridership Data**: Contains monthly figures on unlinked passenger trips (`UPT`) and vehicle revenue miles (`VRM`) for different transit agencies and modes.
+
+1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
+
+```{r}
+if(!require("tidyverse")) install.packages("tidyverse")
+
+# Let's start with Fare Revenue
+library(tidyverse)
+if(!file.exists("2022_fare_revenue.xlsx")){
+    # This should work _in theory_ but in practice it's still a bit finicky
+    # If it doesn't work for you, download this file 'by hand' in your
+    # browser and save it as "2022_fare_revenue.xlsx" in your project
+    # directory.
+    download.file("http://www.transit.dot.gov/sites/fta.dot.gov/files/2024-04/2022%20Fare%20Revenue.xlsx", 
+                  destfile="2022_fare_revenue.xlsx", 
+                  quiet=FALSE, 
+                  method="auto")
+}
+FARES <- readxl::read_xlsx("2022_fare_revenue.xlsx") |>
+    select(-`State/Parent NTD ID`, 
+           -`Reporter Type`,
+           -`Reporting Module`,
+           -`TOS`,
+           -`Passenger Paid Fares`,
+           -`Organization Paid Fares`) |>
+    filter(`Expense Type` == "Funds Earned During Period") |>
+    select(-`Expense Type`) |>
+    group_by(`NTD ID`,       # Sum over different `TOS` for the same `Mode`
+             `Agency Name`,  # These are direct operated and sub-contracted 
+             `Mode`) |>      # of the same transit modality
+                             # Not a big effect in most munis (significant DO
+                             # tends to get rid of sub-contractors), but we'll sum
+                             # to unify different passenger experiences
+    summarize(`Total Fares` = sum(`Total Fares`)) |>
+    ungroup()
+
+# Next, expenses
+if(!file.exists("2022_expenses.csv")){
+    # This should work _in theory_ but in practice it's still a bit finicky
+    # If it doesn't work for you, download this file 'by hand' in your
+    # browser and save it as "2022_expenses.csv" in your project
+    # directory.
+    download.file("https://data.transportation.gov/api/views/dkxx-zjd6/rows.csv?date=20231102&accessType=DOWNLOAD&bom=true&format=true", 
+                  destfile="2022_expenses.csv", 
+                  quiet=FALSE, 
+                  method="auto")
+}
+EXPENSES <- readr::read_csv("2022_expenses.csv") |>
+    select(`NTD ID`, 
+           `Agency`,
+           `Total`, 
+           `Mode`) |>
+    mutate(`NTD ID` = as.integer(`NTD ID`)) |>
+    rename(Expenses = Total) |>
+    group_by(`NTD ID`, `Mode`) |>
+    summarize(Expenses = sum(Expenses)) |>
+    ungroup()
+
+FINANCIALS <- inner_join(FARES, EXPENSES, join_by(`NTD ID`, `Mode`))
+
+```
+
+2.  Vehicle Revenue Miles and Transit Trips We will now proceeded by joining ridership (`UPT`) and miles traveled (`VRM`) data, creating a comprehensive data set that combined these metrics by transit `Agency` and `Mode`.
+
+```{r}
+
+# Download and clean the ridership data
+library(tidyverse)
+if(!file.exists("ridership.xlsx")){
+    download.file("https://www.transit.dot.gov/sites/fta.dot.gov/files/2024-09/July%202024%20Complete%20Monthly%20Ridership%20%28with%20adjustments%20and%20estimates%29_240903.xlsx", 
+                  destfile="ridership.xlsx", 
+                  quiet=FALSE, 
+                  method="auto")
+}
+TRIPS <- readxl::read_xlsx("ridership.xlsx", sheet="UPT") |>
+            filter(`Mode/Type of Service Status` == "Active") |>
+            select(-`Legacy NTD ID`, 
+                   -`Reporter Type`, 
+                   -`Mode/Type of Service Status`, 
+                   -`UACE CD`, 
+                   -`TOS`) |>
+            pivot_longer(-c(`NTD ID`:`3 Mode`), 
+                            names_to="month", 
+                            values_to="UPT") |>
+            drop_na() |>
+            mutate(month=my(month))
+
+# Download and clean the miles traveled data
+MILES <- readxl::read_xlsx("ridership.xlsx", sheet="VRM") |>
+            filter(`Mode/Type of Service Status` == "Active") |>
+            select(-`Legacy NTD ID`, 
+                   -`Reporter Type`, 
+                   -`Mode/Type of Service Status`, 
+                   -`UACE CD`, 
+                   -`TOS`) |>
+            pivot_longer(-c(`NTD ID`:`3 Mode`), 
+                            names_to="month", 
+                            values_to="VRM") |>
+            drop_na() |>
+            group_by(`NTD ID`, `Agency`, `UZA Name`, 
+                     `Mode`, `3 Mode`, month) |>
+            summarize(VRM = sum(VRM)) |>
+            ungroup() |>
+            mutate(month=my(month))
+
+
+# Merge the trips and miles data, then rename the field UZA Name to metro_area
+USAGE <- inner_join(TRIPS, MILES) |>
+  rename(metro_area = `UZA Name`)
+```
+
+Let us now create the table `USAGE` displaying a sample of 30 rows.
+
+```{R}
+if(!require("DT")) install.packages("DT")
+library(DT)
+
+sample_n(USAGE, 30) |> 
+    mutate(month=as.character(month)) |> 
+    DT::datatable()
+```
+
+Now that we have our table, let's re code the unique Mode codes and update the to their correct definitions.
+
+```{r}
+unique_modes <- USAGE |>
+  distinct(Mode)
+
+print(unique_modes) #Note: there are 18 unique Mode codes in our dataset
+```
+
+```{r}
+
+# Definitions based on the NTD website data.
+USAGE <- USAGE |>
+  mutate(Mode = case_when(
+    Mode == "DR" ~ "Demand Response",
+    Mode == "MB" ~ "Motorbus",
+    Mode == "CR" ~ "Commuter Rail",
+    Mode == "CC" ~ "Cable Car",
+    Mode == "LR" ~ "Light Rail",
+    Mode == "PB" ~ "Publico",
+    Mode == "SR" ~ "Streetcar Rail",
+    Mode == "VP" ~ "Vanpool",
+    Mode == "CB" ~ "Commuter Bus",
+    Mode == "TB" ~ "Trolleybus",
+    Mode == "FB" ~ "Ferryboat",
+    Mode == "TR" ~ "Aerial Tramway",
+    Mode == "HR" ~ "Heavy Rail",
+    Mode == "MG" ~ "Monorail/Automated Guideway",
+    Mode == "RB" ~ "Bus Rapid Transit",
+    Mode == "OR" ~ "Other Rail",
+    Mode == "YR" ~ "Hybrid Rail",
+    Mode == "AR" ~ "Alaska Railroad",
+    Mode == "IP" ~ "Inclined Plane",
+    TRUE ~ "Unknown"))
+
+# Confirmation that the Mode codes have been updated.
+if(!require("DT")) install.packages("DT")
+library(DT)
+
+sample_n(USAGE, 30) |> 
+    mutate(month=as.character(month)) |> 
+    DT::datatable()
+
+# In the event that the Mode displays "Unknown" values, re run the codes above.
+
+```
+
+To finalize the `USAGE` table, we clean it up by unselecting the NTD ID and `3 Mode` columns.
+
+```{r}
+sample_n(USAGE, 1000) |> 
+  select(-`NTD ID`, -`3 Mode`)|>
+  mutate(`Passenger Trips` = UPT, `Vehicle Miles`= VRM)|>
+  mutate(month=as.character(month)) |> 
+  DT::datatable()
+
+```
+
+By cleaning, transforming, and merging these data sets, we will now compute key metrics to assess transit system performance.
+
+# Results
+
+1.  Transit Agency with the Most Vehicle Revenue Miles (`VRM`)
+
+The **MTA New York City Transit** recorded the highest total VRM in 2022 with **10,832,855,350** miles. Demonstrating the scale of New York City’s transit system compared to others.
+
+```{R}
+# Summarize VRM by agency and find the agency with the highest total VRM
+agency_max_vrm <- USAGE |>
+  group_by(Agency) |>
+  summarize(total_VRM = sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(total_VRM))
+
+head(agency_max_vrm, 1) # View the top agency
+```
+
+2.  Transit Mode with the Most Vehicle Revenue Miles (`VRM`)
+
+The **Motorbus** mode had the highest total VRM across all agencies, contributing **49,444,494,088** miles. This indicates that motorbuses are a heavily utilized mode of public transportation nationwide.
+
+```{r}
+
+mode_max_vrm <- USAGE |>
+  group_by(Mode) |>
+  summarize(total_VRM = sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(total_VRM))
+
+head(mode_max_vrm, 1) # View the top Mode
+```
+
+3.  NYC Subway Ridership in May 2024
+
+In May 2024, the **MTA New York City Transit's** subway system (`Heavy Rail`) transported **180,458,819 passengers**. This highlights the ongoing high demand for subway services in New York City.
+
+```{r}
+
+# Filter for NYC Subway, Heavy Rail, and May 2024
+nyc_subway_may_2024 <- USAGE |>
+  filter(Agency == "MTA New York City Transit",
+         Mode == "Heavy Rail",
+         month == as.Date("2024-05-01"))
+
+# Sum the UPT (Unlinked Passenger Trips) for May 2024
+total_trips_may_2024 <- sum(nyc_subway_may_2024$UPT, na.rm = TRUE)
+
+
+total_trips_may_2024 # Display the total trips
+
+```
+
+4.  Agency with the Most Unlinked Passenger Trips (`UPT`)
+
+The **MTA New York City Transit** once again led the nation with the highest total UPT, recording **69,101,730,780** trips. This underscores the significant role that New York City's public transit plays in daily commuting.
+
+```{R}
+ # Let's find which Agency has the most active transit by finding the transit agency with the most number of trips
+most_active_agency <- USAGE |>
+  group_by(Agency) |>
+  summarize(total_UPT = sum(UPT, na.rm = TRUE)) |>
+  arrange(desc(total_UPT))
+
+head(most_active_agency, 1)
+
+```
+
+The next step of computing the key metrics will creating a table `USAGE_2022_ANNUAL` with only 2022 riders data. Then merge it to the `FINANCIALS` table. A quick view of the `FINANCIALS` table show that the Mode field from both tables is different. One showing the definitions and the other showing the codes. We needs to re-code to match the values in `USAGE_2022_ANNUAL`.
+
+```{r}
+
+library(dplyr)
+library(lubridate)
+
+# creates USAGE_2022_ANNUAL
+USAGE_2022_ANNUAL <- USAGE |>
+  group_by(`NTD ID`, month, Agency, metro_area, Mode) |>
+  summarize(
+    UPT = sum(UPT, na.rm = TRUE),
+    VRM = sum(VRM, na.rm = TRUE)
+  ) |>
+  ungroup()
+
+USAGE_2022_ANNUAL
+
+# Re-coding the Mode with their definitions
+FINANCIALS <- FINANCIALS |>
+  mutate(Mode = case_when(
+    Mode == "DR" ~ "Demand Response",
+    Mode == "MB" ~ "Motorbus",
+    Mode == "CR" ~ "Commuter Rail",
+    Mode == "CC" ~ "Cable Car",
+    Mode == "LR" ~ "Light Rail",
+    Mode == "PB" ~ "Publico",
+    Mode == "SR" ~ "Streetcar Rail",
+    Mode == "VP" ~ "Vanpool",
+    Mode == "CB" ~ "Commuter Bus",
+    Mode == "TB" ~ "Trolleybus",
+    Mode == "FB" ~ "Ferryboat",
+    Mode == "TR" ~ "Aerial Tramway",
+    Mode == "HR" ~ "Heavy Rail",
+    Mode == "MG" ~ "Monorail/Automated Guideway",
+    Mode == "RB" ~ "Bus Rapid Transit",
+    Mode == "OR" ~ "Other Rail",
+    Mode == "YR" ~ "Hybrid Rail",
+    Mode == "AR" ~ "Alaska Railroad",
+    Mode == "IP" ~ "Inclined Plane",
+    TRUE ~ "Unknown")) |>
+    mutate(`NTD ID` = as.character(`NTD ID`)) # joining Integer and Character type data is impossible, So I converted NTD ID data type to match USAGE_2022_ANNUAL
+
+# We are now merging the USAGE_2022_ANNUAL and FINANCIALS tables
+USAGE_AND_FINANCIALS <- left_join(USAGE_2022_ANNUAL, 
+                                  FINANCIALS, join_by(`NTD ID`, Mode)) |>
+     drop_na()
+
+USAGE_AND_FINANCIALS
+
+```
+
+5.  Transit System with the Most `UPT` in 2022
+
+The **MTA New York City Transit's Heavy Rail** system recorded the most UPT in 2022, with **1,793,073,801 trips**. This highlights the central role of the NYC subway in the nation’s transit network.
+
+```{R}
+ # First let's filter for major transit with more than 400,000 UPT per annum in 2022
+major_system <- USAGE_AND_FINANCIALS |>
+  filter(year(month) == 2022, UPT > 400000)
+
+most_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(total_UPT =sum(UPT, na.rm =TRUE)) |>
+  arrange(desc(total_UPT))
+
+head(most_UPT, 1)
+
+```
+
+6.  Transit System with the Highest `Fare-box Recovery`
+
+The **Anaheim Transportation Network’s Motorbus** service achieved the highest fare-box recovery ratio at **0.865** (or **86.5%**), indicating that the system covers a significant portion of its operating costs through fare collection.
+
+```{R}
+# Find the transit system with the highest fare-box recovery ratio (Total Fares / Expenses)
+highest_farebox_recovery <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(farebox_recovery = sum(`Total Fares`, na.rm = TRUE) / sum(Expenses, na.rm = TRUE)) |>
+  arrange(desc(farebox_recovery))
+
+head(highest_farebox_recovery, 1)
+
+```
+
+7.  Transit System with the Lowest Expenses per `UPT`
+
+**University of Georgia (Motorbus)** had the lowest expenses per UPT at **\$14.90**. This suggests that the university’s motorbus system operates at a lower cost per passenger compared to other major systems.
+
+```{R}
+# Find the transit system with the lowest expenses per UPT (Expenses / UPT)
+lowest_expenses_per_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(expenses_per_UPT = sum(Expenses, na.rm = TRUE) / sum(UPT, na.rm = TRUE)) |>
+  arrange(expenses_per_UPT)
+ 
+head(lowest_expenses_per_UPT, 1)
+
+```
+
+8.  Transit System with the Highest Fares per `UPT`
+
+The **Metro-North Commuter Railroad (Commuter Rail)** had the highest total fares per `UPT`, with **\$98.65 per trip**. This is indicative of higher fares typically charged on long-distance commuter services.
+
+```{r}
+# Find the transit system with the highest total fares per UPT (Total Fares / UPT)
+highest_fares_per_UPT <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(fares_per_UPT = sum(`Total Fares`, na.rm = TRUE) / sum(UPT, na.rm = TRUE)) |>
+  arrange(desc(fares_per_UPT))
+
+head(highest_fares_per_UPT, 1)
+
+```
+
+9.  Transit with the lowest expense per VRM
+
+With a cost of **\$51.03** per `VRM`, The **Delaware Transit Corporation (Motorbus)** haS the lowest expenses. Suggesting that their bus operations are particularly cost-efficient in relation to the distance their vehicles travel.
+
+```{r}
+ # Find the transit system with the lowest expenses per VRM (Expenses / VRM)
+lowest_expenses_per_VRM <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(expenses_per_VRM = sum(Expenses, na.rm = TRUE) / sum(VRM, na.rm = TRUE)) |>
+  arrange(expenses_per_VRM)
+
+head(lowest_expenses_per_VRM, 1)
+
+```
+
+10. Transit System with the Highest Fares per `VRM`
+
+The **Washington State Ferries (Ferryboat)** system had the highest total fares per `VRM`, with **\$827.86**. Ferries typically have high operating costs and therefore charge higher fares per mile traveled.
+
+```{r}
+ # Find the transit system with the highest total fares per VRM (Total Fares / VRM)
+highest_fares_per_VRM <- major_system |>
+  group_by(Agency, Mode) |>
+  summarize(fares_per_VRM = sum(`Total Fares`, na.rm = TRUE) / sum(VRM, na.rm = TRUE)) |>
+  arrange(desc(fares_per_VRM))
+
+head(highest_fares_per_VRM, 1)
+
+```
+
+# Conclusion
+
+This analysis highlights the performance of various transit systems across the U.S., with **New York City’s MTA** consistently leading in both VRM and UPT. The `Motorbus` mode proves to be the most heavily utilized, while **Anaheim’s Transportation Network** demonstrated an impressive `fare-box recovery` ratio, suggesting a highly efficient operation. These findings provide valuable insights for transit agencies in terms of resource allocation, planning, and operational efficiency, while also offering a benchmark for future performance assessments.
