@@ -19,9 +19,9 @@ The data used in this analysis includes the following:
 1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
 
 ```{r}
-#|include: FALSE
-#|results: "hide"
+
 if(!require("tidyverse")) install.packages("tidyverse")
+
 
 library(tidyverse)
 # Download and read the FARE REVENUE data
@@ -68,7 +68,7 @@ FINANCIALS <- inner_join(FARES, EXPENSES, join_by(`NTD ID`, `Mode`))
 
 ```{r}
 #| include: FALSE
-#| message: False
+
 # Download and clean the ridership data
 library(tidyverse)
 if(!file.exists("ridership.xlsx")){
