@@ -12,11 +12,15 @@ This report provides a comprehensive analysis of transit data from 2022, focusin
 
 The data used in this analysis includes the following:
 
-\+**Fare Revenue Data**: Contains information on fare revenue earned by various transit systems. +**Expense Data**: Contains financial information related to transit expenses. +**Ridership Data**: Contains monthly figures on unlinked passenger trips (`UPT`) and vehicle revenue miles (`VRM`) for different transit agencies and modes.
+-   **Fare Revenue Data**: Contains information on fare revenue earned by various transit systems.
+-   **Expense Data**: Contains financial information related to transit expenses.
+-   **Ridership Data**: Contains monthly figures on unlinked passenger trips (`UPT`) and vehicle revenue miles (`VRM`) for different transit agencies and modes.
 
 1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
 
 ```{r}
+#|include: FALSE
+#|message: False
 if(!require("tidyverse")) install.packages("tidyverse")
 
 library(tidyverse)
@@ -63,6 +67,8 @@ FINANCIALS <- inner_join(FARES, EXPENSES, join_by(`NTD ID`, `Mode`))
 2.  Vehicle Revenue Miles and Transit Trips We will now proceeded by joining ridership (`UPT`) and miles traveled (`VRM`) data, creating a comprehensive data set that combined these metrics by transit `Agency` and `Mode`.
 
 ```{r}
+#| include: FALSE
+#| message: False
 # Download and clean the ridership data
 library(tidyverse)
 if(!file.exists("ridership.xlsx")){
@@ -111,6 +117,7 @@ USAGE <- inner_join(TRIPS, MILES) |>
 Let us now create the table `USAGE` displaying a sample of 30 rows.
 
 ```{R}
+
 if(!require("DT")) install.packages("DT")
 library(DT)
 
@@ -125,11 +132,10 @@ Now that we have our table, let's re code the unique Mode codes and update the t
 unique_modes <- USAGE |>
   distinct(Mode)
 
-print(unique_modes)
+print(unique_modes) #Note: there are 18 unique Mode codes in our dataset
 ```
 
 ```{r}
-print(unique_modes) #Note: there are 18 unique Mode codes in our dataset
 
 # Definitions based on the NTD website data.
 USAGE <- USAGE |>
@@ -159,11 +165,12 @@ USAGE <- USAGE |>
 if(!require("DT")) install.packages("DT")
 library(DT)
 
-sample_n(USAGE, 1000) |> 
+sample_n(USAGE, 30) |> 
     mutate(month=as.character(month)) |> 
     DT::datatable()
 
-print(USAGE) # In the event that the Mode displays "Unknown" values, re run the codes above.
+# In the event that the Mode displays "Unknown" values, re run the codes above.
+
 ```
 
 To finalize the `USAGE` table, we clean it up by unselecting the NTD ID and `3 Mode` columns.
@@ -181,7 +188,9 @@ By cleaning, transforming, and merging these data sets, we will now compute key 
 
 # Results
 
-1.  Transit Agency with the Most Vehicle Revenue Miles (`VRM`) The **MTA New York City Transit** recorded the highest total VRM in 2022 with **10,832,855,350** miles. Demonstrating the scale of New York City’s transit system compared to others.
+1.  Transit Agency with the Most Vehicle Revenue Miles (`VRM`)
+
+The **MTA New York City Transit** recorded the highest total VRM in 2022 with **10,832,855,350** miles. Demonstrating the scale of New York City’s transit system compared to others.
 
 ```{R}
 # Summarize VRM by agency and find the agency with the highest total VRM
@@ -193,9 +202,12 @@ agency_max_vrm <- USAGE |>
 head(agency_max_vrm, 1) # View the top agency
 ```
 
-2.  Transit Mode with the Most Vehicle Revenue Miles (`VRM`) The **Motorbus** mode had the highest total VRM across all agencies, contributing **49,444,494,088** miles. This indicates that motorbuses are a heavily utilized mode of public transportation nationwide.
+2.  Transit Mode with the Most Vehicle Revenue Miles (`VRM`)
+
+The **Motorbus** mode had the highest total VRM across all agencies, contributing **49,444,494,088** miles. This indicates that motorbuses are a heavily utilized mode of public transportation nationwide.
 
 ```{r}
+
 mode_max_vrm <- USAGE |>
   group_by(Mode) |>
   summarize(total_VRM = sum(VRM, na.rm = TRUE)) |>
@@ -204,9 +216,12 @@ mode_max_vrm <- USAGE |>
 head(mode_max_vrm, 1) # View the top Mode
 ```
 
-3.  NYC Subway Ridership in May 2024 In May 2024, the **MTA New York City Transit's** subway system (`Heavy Rail`) transported **180,458,819 passengers**. This highlights the ongoing high demand for subway services in New York City.
+3.  NYC Subway Ridership in May 2024
+
+In May 2024, the **MTA New York City Transit's** subway system (`Heavy Rail`) transported **180,458,819 passengers**. This highlights the ongoing high demand for subway services in New York City.
 
 ```{r}
+
 # Filter for NYC Subway, Heavy Rail, and May 2024
 nyc_subway_may_2024 <- USAGE |>
   filter(Agency == "MTA New York City Transit",
@@ -221,7 +236,9 @@ total_trips_may_2024 # Display the total trips
 
 ```
 
-4.  Agency with the Most Unlinked Passenger Trips (`UPT`) The **MTA New York City Transit** once again led the nation with the highest total UPT, recording **69,101,730,780** trips. This underscores the significant role that New York City's public transit plays in daily commuting.
+4.  Agency with the Most Unlinked Passenger Trips (`UPT`)
+
+The **MTA New York City Transit** once again led the nation with the highest total UPT, recording **69,101,730,780** trips. This underscores the significant role that New York City's public transit plays in daily commuting.
 
 ```{R}
  # Let's find which Agency has the most active transit by finding the transit agency with the most number of trips
@@ -237,6 +254,7 @@ head(most_active_agency, 1)
 The next step of computing the key metrics will creating a table `USAGE_2022_ANNUAL` with only 2022 riders data. Then merge it to the `FINANCIALS` table. A quick view of the `FINANCIALS` table show that the Mode field from both tables is different. One showing the definitions and the other showing the codes. We needs to re-code to match the values in `USAGE_2022_ANNUAL`.
 
 ```{r}
+
 library(dplyr)
 library(lubridate)
 
@@ -276,7 +294,6 @@ FINANCIALS <- FINANCIALS |>
     TRUE ~ "Unknown")) |>
     mutate(`NTD ID` = as.character(`NTD ID`)) # joining Integer and Character type data is impossible, So I converted NTD ID data type to match USAGE_2022_ANNUAL
 
-
 # We are now merging the USAGE_2022_ANNUAL and FINANCIALS tables
 USAGE_AND_FINANCIALS <- left_join(USAGE_2022_ANNUAL, 
                                   FINANCIALS, join_by(`NTD ID`, Mode)) |>
@@ -286,9 +303,12 @@ USAGE_AND_FINANCIALS
 
 ```
 
-5.  Transit System with the Most `UPT` in 2022 The **MTA New York City Transit's Heavy Rail** system recorded the most UPT in 2022, with **1,793,073,801 trips**. This highlights the central role of the NYC subway in the nation’s transit network.
+5.  Transit System with the Most `UPT` in 2022
+
+The **MTA New York City Transit's Heavy Rail** system recorded the most UPT in 2022, with **1,793,073,801 trips**. This highlights the central role of the NYC subway in the nation’s transit network.
 
 ```{R}
+
  # First let's filter for major transit with more than 400,000 UPT per annum in 2022
 major_system <- USAGE_AND_FINANCIALS |>
   filter(year(month) == 2022, UPT > 400000)
@@ -302,9 +322,12 @@ head(most_UPT, 1)
 
 ```
 
-6.  Transit System with the Highest `Fare-box Recovery` The **Anaheim Transportation Network’s Motorbus** service achieved the highest fare-box recovery ratio at **0.865** (or **86.5%**), indicating that the system covers a significant portion of its operating costs through fare collection.
+6.  Transit System with the Highest `Fare-box Recovery`
+
+The **Anaheim Transportation Network’s Motorbus** service achieved the highest fare-box recovery ratio at **0.865** (or **86.5%**), indicating that the system covers a significant portion of its operating costs through fare collection.
 
 ```{R}
+
 # Find the transit system with the highest fare-box recovery ratio (Total Fares / Expenses)
 highest_farebox_recovery <- major_system |>
   group_by(Agency, Mode) |>
@@ -315,9 +338,12 @@ head(highest_farebox_recovery, 1)
 
 ```
 
-7.  Transit System with the Lowest Expenses per `UPT` **University of Georgia (Motorbus)** had the lowest expenses per UPT at **\$14.90**. This suggests that the university’s motorbus system operates at a lower cost per passenger compared to other major systems.
+7.  Transit System with the Lowest Expenses per `UPT`
+
+**University of Georgia (Motorbus)** had the lowest expenses per UPT at **\$14.90**. This suggests that the university’s motorbus system operates at a lower cost per passenger compared to other major systems.
 
 ```{R}
+
 # Find the transit system with the lowest expenses per UPT (Expenses / UPT)
 lowest_expenses_per_UPT <- major_system |>
   group_by(Agency, Mode) |>
@@ -328,9 +354,12 @@ head(lowest_expenses_per_UPT, 1)
 
 ```
 
-8.  Transit System with the Highest Fares per `UPT` The **Metro-North Commuter Railroad (Commuter Rail)** had the highest total fares per `UPT`, with **\$98.65 per trip**. This is indicative of higher fares typically charged on long-distance commuter services.
+8.  Transit System with the Highest Fares per `UPT`
+
+The **Metro-North Commuter Railroad (Commuter Rail)** had the highest total fares per `UPT`, with **\$98.65 per trip**. This is indicative of higher fares typically charged on long-distance commuter services.
 
 ```{r}
+
 # Find the transit system with the highest total fares per UPT (Total Fares / UPT)
 highest_fares_per_UPT <- major_system |>
   group_by(Agency, Mode) |>
@@ -341,9 +370,12 @@ head(highest_fares_per_UPT, 1)
 
 ```
 
-9.  Transit with the lowest expense per VRM With a cost of *\$51.03* per `VRM`, The **Delaware Transit Corporation (Motorbus)** haS the lowest expenses. Suggesting that their bus operations are particularly cost-efficient in relation to the distance their vehicles travel.
+9.  Transit with the lowest expense per VRM
+
+With a cost of **$51.03** per `VRM`, The **Delaware Transit Corporation (Motorbus)** haS the lowest expenses. Suggesting that their bus operations are particularly cost-efficient in relation to the distance their vehicles travel.
 
 ```{r}
+
  # Find the transit system with the lowest expenses per VRM (Expenses / VRM)
 lowest_expenses_per_VRM <- major_system |>
   group_by(Agency, Mode) |>
@@ -354,9 +386,12 @@ head(lowest_expenses_per_VRM, 1)
 
 ```
 
-10. Transit System with the Highest Fares per `VRM` The *Washington State Ferries (Ferryboat)* system had the highest total fares per `VRM`, with **\$937.00**. Ferries typically have high operating costs and therefore charge higher fares per mile traveled.
+10. Transit System with the Highest Fares per `VRM`
+
+The **Washington State Ferries (Ferryboat)** system had the highest total fares per `VRM`, with **\$827.86**. Ferries typically have high operating costs and therefore charge higher fares per mile traveled.
 
 ```{r}
+
  # Find the transit system with the highest total fares per VRM (Total Fares / VRM)
 highest_fares_per_VRM <- major_system |>
   group_by(Agency, Mode) |>
