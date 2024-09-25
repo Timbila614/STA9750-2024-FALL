@@ -19,9 +19,7 @@ The data used in this analysis includes the following:
 1.  Loading and Cleaning `FARES` and `EXPENSES` Data The first step in the analysis was downloading the fare revenue and expense data-sets from the DOT website and cleaning them to create tables for further analysis.
 
 ```{r}
-#|echo: false
 #|include: FALSE
-#|message: False
 #|results: "hide"
 if(!require("tidyverse")) install.packages("tidyverse")
 
