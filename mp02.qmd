@@ -1,0 +1,762 @@
+# Mini-Project #02: The Business of Show Business
+
+## Overview
+
+This report outlines the analysis of IMDb data to determine the best genre, actors, and directors for a successful new movie project. We used a structured approach to filter, clean, and analyze IMDb data to identify trends and define a custom metric for success. The project involved using R to handle large data files, performing tasks like correcting column types, sub-sampling, and developing a success metric based on *IMDb ratings* and *vote counts*. Finally, we provided a movie proposal based on key personnel and a chosen genre, supported by data-driven insights.
+
+## Data Handling and Processing
+
+IMDb provides extensive data, which required careful sub-sampling and filtering to make it manageable. To achieve this, we will take the following steps:
+
+**Step 1**: Download the data from IMDb and create the following tables:
+
+-   `NAME_BASICS`: contains information about people (actors, directors, writers, etc.) in the IMDb database.
+-   `TITLE_BASICS`: contains basic information about movies, TV shows, and other titles listed in IMDb.
+-   `TITLE_EPISODES`: contains information specific to individual TV episodes.
+-   `TITLE_RATINGS`: contains IMDb ratings for titles.
+-   `TITLE_CREW`: contains information about the director(s) and writer(s) for each title.
+-   `TITLE_PRINCIPALS`: contains information about the key cast and crew involved in a title.
+
+```{r}
+#| label: 'imdb_name_basics'
+#| message: false 
+#| warning: false
+#| code-fold: true
+
+library(tidyverse)
+library(stringr)
+
+get_imdb_file <- function(fname){
+    BASE_URL <- "https://datasets.imdbws.com/"
+    fname_ext <- paste0(fname, ".tsv.gz")
+    if(!file.exists(fname_ext)){
+        FILE_URL <- paste0(BASE_URL, fname_ext)
+        download.file(FILE_URL, 
+                      destfile = fname_ext)
+    }
+    as.data.frame(readr::read_tsv(fname_ext, lazy=FALSE))
+}
+
+NAME_BASICS      <- get_imdb_file("name.basics")
+TITLE_BASICS     <- get_imdb_file("title.basics")
+TITLE_EPISODES   <- get_imdb_file("title.episode")
+TITLE_RATINGS    <- get_imdb_file("title.ratings")
+TITLE_CREW       <- get_imdb_file("title.crew")
+TITLE_PRINCIPALS <- get_imdb_file("title.principals")
+```
+
+**Step 2**: Let’s throw out any title with less than 100 ratings. It’s not too hard to see that this drops about `75%` of the entire data set.
+
+```{r}
+#| label: 'title_ratings_quantile'
+#| code-fold: true
+
+TITLE_RATINGS |>
+    pull(numVotes) |>
+    quantile()
+```
+
+**Step 3**: Filtering People: The `NAME_BASICS` table was filtered to include only those with at least two *known for* credits.
+
+```{r}
+#| label: 'name_basics_filter'
+#| message: false
+#| warning: false
+#| code-fold: true
+
+NAME_BASICS <- NAME_BASICS |> 
+    filter(str_count(knownForTitles, ",") > 1)
+```
+
+**Step 3**: Title Filtering: Titles with fewer than 100 IMDb ratings will be removed, retaining only more widely recognized movies.
+
+```{r}
+#| label: 'title_ratings_filter'
+#| code-fold: true
+
+# Let's drop movie titles with less than 100 votes
+TITLE_RATINGS <- TITLE_RATINGS |>
+    filter(numVotes >= 100)
+```
+
+**Step 4**: Joining Tables: A `semi-join` on the filtered `TITLE_RATINGS` table will be used to filter the `TITLE_BASICS`, `TITLE_CREW`, `TITLE_EPISODES`, and `TITLE_PRINCIPALS` tables.
+
+```{r}
+#| code-fold: true
+#| label: 'title_other_filter'
+#| message: false
+TITLE_BASICS <- TITLE_BASICS |>
+    semi_join(TITLE_RATINGS, 
+              join_by(tconst == tconst))
+
+TITLE_CREW <- TITLE_CREW |>
+    semi_join(TITLE_RATINGS, 
+              join_by(tconst == tconst))
+
+TITLE_EPISODES_1 <- TITLE_EPISODES |>
+    semi_join(TITLE_RATINGS, 
+              join_by(tconst == tconst))
+TITLE_EPISODES_2 <- TITLE_EPISODES |>
+    semi_join(TITLE_RATINGS, 
+              join_by(parentTconst == tconst))
+
+TITLE_EPISODES <- bind_rows(TITLE_EPISODES_1,
+                            TITLE_EPISODES_2) |>
+    distinct()
+
+TITLE_PRINCIPALS <- TITLE_PRINCIPALS |>
+    semi_join(TITLE_RATINGS, join_by(tconst == tconst))
+
+
+rm(TITLE_EPISODES_1)
+rm(TITLE_EPISODES_2)
+```
+
+**Step 5**: Using a combination of mutate and the coercion functions `as.numeric` and `as.logical` to correct the data type for all the tables.
+
+```{r title_tables}
+#| message: false
+#| code-fold: true
+#| warning: false
+
+# Correct the column types for NAME_BASICS
+NAME_BASICS <- NAME_BASICS |>
+    mutate(birthYear = as.numeric(birthYear), # Numeric
+           deathYear = as.numeric(deathYear)) # Numeric
+
+# Correct the column types for TITLE_BASICS
+TITLE_BASICS <- TITLE_BASICS |>
+    mutate(
+        tconst = as.character(tconst),  # ID should remain as character
+        titleType = as.character(titleType),  # Character
+        primaryTitle = as.character(primaryTitle),  # Character
+        originalTitle = as.character(originalTitle),  # Character
+        isAdult = as.logical(isAdult),  # Boolean
+        startYear = as.numeric(startYear),  # Numeric
+        endYear = as.numeric(endYear),  # Numeric
+        runtimeMinutes = as.numeric(runtimeMinutes),  # Numeric
+        genres = as.character(genres)  # Character
+    )
+
+# Correct the column types for TITLE_RATINGS
+TITLE_RATINGS <- TITLE_RATINGS |>
+    mutate(
+        tconst = as.character(tconst),  # ID should remain as character
+        averageRating = as.numeric(averageRating),  # Numeric
+        numVotes = as.numeric(numVotes)  # Numeric
+    )
+
+# Correct the column types for TITLE_CREW
+TITLE_CREW <- TITLE_CREW |>
+    mutate(
+        tconst = as.character(tconst),  # ID should remain as character
+        directors = as.character(directors),  # Character
+        writers = as.character(writers)  # Character
+    )
+
+# Correct the column types for TITLE_EPISODES
+TITLE_EPISODES <- TITLE_EPISODES |>
+    mutate(
+        tconst = as.character(tconst),  # ID should remain as character
+        parentTconst = as.character(parentTconst),  # Character
+        seasonNumber = as.numeric(seasonNumber),  # Numeric
+        episodeNumber = as.numeric(episodeNumber)  # Numeric
+    )
+
+# Correct the column types for TITLE_PRINCIPALS
+TITLE_PRINCIPALS <- TITLE_PRINCIPALS |>
+    mutate(
+        tconst = as.character(tconst),  # ID should remain as character
+        ordering = as.numeric(ordering),  # Numeric
+        nconst = as.character(nconst),  # Character
+        category = as.character(category),  # Character
+        job = as.character(job),  # Character
+        characters = as.character(characters)  # Character
+    )
+```
+
+**Step 6**: Separating fields with combined multiple values.
+
+```{R glimpse}
+glimpse(NAME_BASICS)
+```
+
+We can see that in the `NAME_BASICS` table, both the `primaryProfession` and `knownForTitles` columns have combine multiple values. To answer some of the questions, we will need use `separate_longer_delim` to split the values.
+
+```{r name_basics}
+#| label: 'seaprate_longer_delim_example'
+#| code-fold: true
+#| message: false
+#| output: false
+
+NAME_BASICS |> 
+    separate_longer_delim(knownForTitles, ",") |> 
+    separate_longer_delim(primaryProfession, ",") |> 
+    slice_head(n = 10)
+```
+
+Now that we have successfully processed the dataset by significantly reducing its size, it is now more manageable for the subsequent analysis.
+
+## Initial Exploration
+
+1.  How many movies are in our data set? How many TV series? How many TV episodes?
+
+```{R title_summary}
+#| code-fold: true
+#| output: false
+TITLE_SUMMARY <- TITLE_BASICS |>
+    filter( titleType %in% c("movie", "tvSeries", "tvEpisode")) |>
+    group_by(titleType) |>
+    summarize(count = n())|>
+    arrange(desc(count))
+
+TITLE_SUMMARY
+```
+
+Using filters applied on the TITLE_BASICS table, we found:
+
+-   *Movies*: 131,893
+
+-   *TV Series*: 29,882
+
+-   *TV Episodes*: 156,049
+
+2.  Who is the oldest living person in our data set?
+
+```{R oldest_alive}
+#| code-fold: true
+#| output: false
+people_after_1917_alive <- NAME_BASICS |>
+    filter(birthYear > 1917, is.na(deathYear)) |> # Filter for birthYear > 1917 and deathYear is NA
+    arrange(birthYear) |>
+    slice_head(n = 1)
+
+print(people_after_1917_alive)
+```
+
+The oldest living person, based on the `NAME_BASICS` table, is **Orest Alikin**, born in **1918**.
+
+3.  There is one TV Episode in this data set with a perfect 10/10 rating and 200,000 IMDb ratings. What is it? What series does it belong to?
+
+Let us find the TV Episode with the perfect rating and 200,000 IMDb ratings.First, we need the information from the `TITLE_RATINGS` and `TITLE_BASICS`. Then, we will find the TV episode with 10/10 rating and more 200,000 votes.
+
+```{R perfect_episode}
+#| code-fold: true
+#| output: false
+perfect_episode <- TITLE_RATINGS |>
+    filter(averageRating == 10, numVotes >= 200000) |>
+    inner_join(TITLE_BASICS, by = "tconst") |>
+    filter(titleType == "tvEpisode") |>
+    select(tconst, primaryTitle, titleType, genres, startYear, averageRating, numVotes)
+
+perfect_episode
+```
+
+The TV episode is **Ozymandias** from *Breaking Bad* (Season 5, Episode 14), with over 200,000 votes and a perfect score.
+
+4.  What four projects is the actor **Mark Hammill** most known for?
+
+```{R mark_hammill_project}
+#| code-fold: true
+#| output: false
+# Find Mark Hamill in the NAME_BASICS table
+mark_hamill_titles <- NAME_BASICS |>
+    filter(primaryName == "Mark Hamill") |>
+    select(knownForTitles) |>
+    separate_rows(knownForTitles, sep = ",") # Split the knownForTitles into individual rows
+
+# Join with TITLE_BASICS to get the details of the titles
+mark_hamill_projects <- mark_hamill_titles |>
+    inner_join(TITLE_BASICS, by = c("knownForTitles" = "tconst")) |>
+    select(primaryTitle, titleType, startYear)
+
+# View the result
+mark_hamill_projects
+```
+
+**Mark Hamill** is most known for:
+
+-   *Star Wars: Episode IV - A New Hope* (1977)
+
+-   *Star Wars: Episode VIII - The Last Jedi* (2017)
+
+-   *Star Wars: Episode V - The Empire Strikes Back* (1980)
+
+-   *Star Wars: Episode VI - Return of the Jedi* (1983)
+
+5.  What TV series, with more than **12 episodes**, has the highest **average** rating?
+
+```{R best_tv_series}
+#| code-fold: true
+#| output: false
+# Step 1: Filter the TITLE_BASICS table to get only TV series and episodes
+tv_series <- TITLE_BASICS |>
+    filter(titleType == "tvSeries")
+
+tv_episodes <- TITLE_BASICS |>
+    filter(titleType == "tvEpisode")
+
+# Step 2: Join the episodes with their parent TV series using TITLE_EPISODES
+tv_series_episodes <- TITLE_EPISODES |>
+    inner_join(tv_episodes, by = c("tconst" = "tconst")) |>
+    inner_join(tv_series, by = c("parentTconst" = "tconst"))
+
+# Step 3: Join with the TITLE_RATINGS to get the ratings for the episodes
+episode_ratings <- tv_series_episodes |>
+    inner_join(TITLE_RATINGS, by = c("tconst" = "tconst"))
+
+# Step 4: Calculate the number of episodes and average rating for each TV series
+series_ratings <- episode_ratings |>
+    group_by(parentTconst) |>
+    summarize(numEpisodes = n(), avgRating = mean(averageRating, na.rm = TRUE)) |>
+    filter(numEpisodes > 12) |>
+    arrange(desc(avgRating))
+
+# Step 5: Join with TITLE_BASICS to get the series name
+best_tv_series <- series_ratings |>
+    inner_join(tv_series, by = c("parentTconst" = "tconst")) |>
+    select(primaryTitle, numEpisodes, startYear, endYear, avgRating) |>
+    slice(1)
+
+# View the result
+best_tv_series
+
+```
+
+*Kavya - Ek Jazbaa, Ek Junoon* (2023-NA) holds the highest average IMDb rating (**9.75**) among series with **113** episodes.
+
+6.  Is it true that episodes from later seasons of *Happy Days* have lower average ratings than the early seasons?
+
+```{R happy_days}
+#| code-fold: true
+#| output: false
+# Step 1: Identify the "Happy Days" series in TITLE_BASICS
+happy_days_series <- TITLE_BASICS |>
+    filter(primaryTitle == "Happy Days", startYear == 1974) |>
+    select(tconst, primaryTitle, startYear)
+
+# Step 2: Get all episodes of "Happy Days" using TITLE_EPISODES
+happy_days_episodes <- TITLE_EPISODES |>
+    filter(parentTconst == happy_days_series$tconst) |>
+    inner_join(TITLE_BASICS, by = "tconst") |>
+    select(tconst, seasonNumber, primaryTitle, episodeNumber)
+
+# Step 3: Get ratings for each episode
+happy_days_ratings <- happy_days_episodes |>
+    inner_join(TITLE_RATINGS, by = "tconst") |>
+    filter(!is.na(seasonNumber))  # Filter out episodes with missing season information
+
+# Step 4: Calculate the average rating for each season
+season_ratings <- happy_days_ratings |>
+    group_by(seasonNumber) |>
+    summarize(avgRating = mean(averageRating, na.rm = TRUE), numEpisodes = n()) |>
+    arrange(seasonNumber)
+
+# Step 5: Compare the average ratings of early and later seasons
+# We'll split into early (e.g., seasons 1-4) and later (e.g., seasons 5+)
+early_seasons <- season_ratings |>
+    filter(seasonNumber <= 4) |>
+    summarize(early_avg = mean(avgRating, na.rm = TRUE))
+
+later_seasons <- season_ratings |>
+    filter(seasonNumber >= 5) |>
+    summarize(later_avg = mean(avgRating, na.rm = TRUE))
+
+# Combine both results into one data frame
+combined_ratings <- bind_cols(early_seasons, later_seasons)
+
+print(combined_ratings)
+```
+
+Our analysis confirms that the average ratings of episodes in later seasons (**6.59**) are lower than those of the earlier seasons (**7.60**).
+
+## Qualifying Success
+
+In order to draft a successful proposal for a new movie, we need a *success metric* that effectively evaluates both the quality (as reflected by average ratings) and popularity (as measured by the number of votes) of a film, ensuring that our decision is data-driven and aimed at maximizing audience appeal and potential profitability.
+
+```{R title_ratings}
+#| code-fold: true
+#| output: false
+# Success Metric
+TITLE_RATINGS <- TITLE_RATINGS |>
+    mutate(SuccessScore = (averageRating * log(numVotes)) / 10) |>
+    arrange(desc(SuccessScore)) |>
+    inner_join(TITLE_BASICS, by = "tconst") |>
+    select(tconst, primaryTitle, titleType, numVotes, averageRating, SuccessScore)
+
+head(TITLE_RATINGS)
+```
+
+1.  Choose the top 5-10 movies on your metric and confirm that they were indeed box office successes.
+
+```{r top_movies}
+#| code-fold: true
+#| output: false
+# Join TITLE_RATINGS with TITLE_BASICS, filter for movies, and select top 10 based on SuccessScore
+top_movies <- TITLE_RATINGS |>
+    arrange(desc(SuccessScore)) |>
+    select(tconst, averageRating, numVotes, SuccessScore) |>
+    inner_join(TITLE_BASICS, by = "tconst") |>
+    filter(titleType == "movie") |>
+    select(tconst, primaryTitle, titleType, SuccessScore) |>
+    head(10)
+
+# View top movies
+print(top_movies)
+```
+
+The top movies based on this metric includes *The Shawshank Redemptiom*, *The Dark Knight*, and *The Godfather* - all recognized as major box office hits.
+
+2.  Choose 3-5 movies with large numbers of IMDb votes that score poorly on your success metric and confirm that they are indeed of low quality.
+
+```{R low_success_movies}
+#| code-fold: true
+#| output: false
+# Define a threshold for low success score
+threshold <- quantile(TITLE_RATINGS$SuccessScore, 0.50, na.rm = TRUE)
+
+# Choose movies that have a low success score
+low_success_movies <- TITLE_RATINGS |>
+    filter(SuccessScore < threshold) |>  # Define a threshold for low success score
+    arrange(desc(numVotes)) |>
+    semi_join(TITLE_BASICS, by = "tconst") |>
+    select(tconst, primaryTitle, titleType, averageRating, numVotes, SuccessScore) |>
+    head(5)
+
+# View these movies
+print(low_success_movies)
+```
+
+Movies such as *Radhe*, *Adipurush*, and *Catwoman* despite high vote counts, scored poorly on the success metric, reflecting their lower critical reception.
+
+3.  Choose a prestige actor or director and confirm that they have many projects with high scores on your success metric.
+
+```{R actor_nconst}
+#| code-fold: true
+# Choose a known actor or director
+prestige_actor <- "Tom Cruise"
+
+# Find the actor's nconst
+actor_nconst <- NAME_BASICS |>
+    filter(primaryName == prestige_actor) |>
+    pull(nconst, primaryName)
+    
+
+actor_nconst
+```
+
+```{R actor_projects}
+#| code-fold: true
+#| output: false
+# Find projects associated with the actor using TITLE_PRINCIPALS
+actor_projects <- TITLE_PRINCIPALS |>
+    filter(nconst == actor_nconst) |>
+    inner_join(TITLE_RATINGS, by = "tconst") |>
+    inner_join(TITLE_BASICS, by = "tconst") |>
+    arrange(desc(SuccessScore)) |>
+    select(tconst, originalTitle, startYear, SuccessScore) |>
+    distinct() |>
+    slice_head(n=5)
+
+# View actor projects
+print(actor_projects)
+
+```
+
+Prestige Actor Validation: Tom Cruise's projects, such as *Top Gun: Maverick* (2022), *Edge of Tomorrow* (2014), and *Rain Man* (1988), ranked highly on the success metric, confirming his box office success and critical praise.
+
+4.  Success Threshold
+
+```{R success_threshold}
+#| code-fold: true
+# Define the threshold for "solid" movies at the 75th percentile (or higher)
+success_threshold <- quantile(TITLE_RATINGS$SuccessScore, 0.75, na.rm = TRUE)
+
+# Print the threshold value
+print(success_threshold)
+
+```
+
+A reasonable success threshold would be in the upper quantiles of the success metric, such as the *75th percentile*. Doing so ensures the movies classified as **Solid** are in the top quantile of the IMDb data-set.
+
+## Examining Success by Genre and Decade
+
+Now that you have a working proxy for success, it’s time to look at trends in success over time. Let's join `TITLE_BASICS` and `TITLE_RATINGS` to bring in genres and release years to create a *Decade* column then using our success threshold to filter for successful movies.
+
+```{R data_grouped_by_decade}
+#| message: false
+#| code-fold: true
+#| output: false
+# Join TITLE_BASICS and TITLE_RATINGS 
+movies_with_genres <- TITLE_BASICS |>
+    select(tconst, primaryTitle, genres, startYear) |>
+    inner_join(TITLE_RATINGS, by = "tconst") |> 
+    filter(!is.na(genres), !is.na(startYear))  # Remove missing genres or years
+
+# Creating a decade column (e.g., 1990s, 2000s, 2010s)
+movies_with_genres <- movies_with_genres |>
+    mutate(decade = floor(as.numeric(startYear) / 10) * 10)
+
+# Filter for successful movies
+successful_movies <- movies_with_genres |>
+    filter(SuccessScore > success_threshold)
+
+# Count successful movies by genre and decade
+success_by_genre_decade <- successful_movies |>
+    separate_rows(genres, sep = ",") |>
+    group_by(genres, decade) |>
+    summarize(success_count = n()) |>
+    arrange(desc(success_count))
+```
+
+1.  What was the genre with the most “successes” in each decade?
+
+The graph below shows the success count of genres by decade, highlighting the rise and the relative decline of **Drama** in recent years.
+
+```{R top_genre_by_decade_plot}
+#| code-fold: true
+#| message: false
+library(gganimate)
+
+# Find the genre with the most successes in each decade
+top_genre_each_decade <- success_by_genre_decade |>
+    group_by(decade) |>
+    filter(genres != "\\N" & !is.na(genres)) |>
+    slice_max(success_count, n = 1) |>
+    arrange(desc(decade), desc(success_count))
+
+p <- ggplot(top_genre_each_decade, aes(x = decade, y = success_count, color = genres)) +
+  geom_point(size = 5, alpha = 0.7, position = position_jitter(width = 0.3, height = 0)) +
+  labs(title = "Top Genres by Success in Each Decade: {closest_state}",
+       x = "Decade",
+       y = "Success Count") +
+  theme_minimal() + 
+  scale_color_brewer(palette = "Set2") +
+  ylim(0, 23000) +
+  theme(legend.position = "bottom")
+
+# Add animation transition
+p_anim <- p + 
+  transition_states(decade, transition_length = 2, state_length = 1) +
+  shadow_mark() +
+  ease_aes('linear')
+
+# Animate the scatter plot
+animate(p_anim, nframes = 100, fps = 10)
+```
+
+The **Drama** genre has the highest success rate historically but has seen a relative decline in recent years.
+
+2.  What genre consistently has the most “successes”? What genre used to reliably produced “successes” and has fallen out of favor?
+
+As previously shown, **Drama** is the leading genre with **53,390** success over the success_threshold.
+
+```{R total_success_by_genre}
+#| code-fold: true
+#| output: false
+# Find the genre with the most successes across all decades
+total_success_by_genre <- success_by_genre_decade |>
+    group_by(genres) |>
+    summarize(total_success_count = sum(success_count)) |>
+    arrange(desc(total_success_count)) |>
+    slice(1)
+
+total_success_by_genre
+```
+
+```{R genre_success_trend}
+#| code-fold: true
+#| output: false
+# Analyze the trends by comparing the success count in earlier vs recent decades
+# Split into early (before 2000) and recent (2000 and after) decades
+early_genre_success <- success_by_genre_decade |>
+    filter(decade < 2000) |>
+    group_by(genres) |>
+    summarize(early_success_count = sum(success_count))
+
+recent_genre_success <- success_by_genre_decade |>
+    filter(decade >= 2000) |>
+    group_by(genres) |>
+    summarize(recent_success_count = sum(success_count))
+
+# Combine the early and recent success counts to compare
+genre_success_trend <- early_genre_success |>
+    inner_join(recent_genre_success, by = "genres", suffix = c("_early", "_recent")) |>
+    mutate(success_drop = early_success_count - recent_success_count) |>
+    filter(genres != "\\N" & !is.na(genres)) |>
+    arrange(desc(success_drop)) |>
+    slice(1)
+
+print(genre_success_trend)
+```
+
+The data reveals a noticeable decline in the number of successful **Western** films over time, with a drop of **134** films from the earlier period to the more recent one. This suggests a decreasing popularity or a shift in audience preferences away from the **Western** genre in recent years
+
+3.  What genre has produced the most “successes” since 2010? Does it have the highest success rate or does it only have a large number of successes because there are many productions in that genre?
+
+```{R genre_success_rate}
+#| code-fold: true
+#| output: false
+# Filter for movies released since 2010
+success_since_2010 <- success_by_genre_decade |>
+    filter(decade >= 2010) |>
+    group_by(genres) |>
+    summarize(success_count = sum(success_count), .groups = 'drop')
+
+# Count total productions in each genre since 2010
+total_productions_since_2010 <- movies_with_genres |>
+    filter(startYear >= 2010) |>
+    separate_rows(genres, sep = ",") |>
+    group_by(genres) |>
+    summarize(total_productions = n(), .groups = 'drop')
+
+# Combine the success counts with total productions to calculate the success rate
+genre_success_rate <- success_since_2010 |>
+    inner_join(total_productions_since_2010, by = "genres") |>
+    mutate(success_rate = success_count / total_productions) |>
+    filter(success_count >= 5000, genres != "\\N" & !is.na(genres)) |>
+    arrange(desc(success_count))
+
+# View the genres with their success counts and success rates
+print(genre_success_rate)
+```
+
+Since 2010, **Drama** has the most successful productions primarily due to its large number of total productions. While its success rate of *33.9%* is fairly strong, it is not the highest compared to other genres like **Adventure** and **Action**, which both have success rates around *40%*. This indicates that Drama's high number of successes is largely due to the volume of productions in the genre, rather than each individual production having the highest probability of success.
+
+Thus, Drama benefits from sheer volume, while genres like Action and Adventure, though producing fewer total successes, have a higher likelihood of success relative to the number of productions in that genre.
+
+4.  What genre has become more popular in recent years?
+
+```{R popular_genre_plot}
+#| code-fold: true
+#| message: false
+# Compare success counts between earlier decades and 2010s
+growth_in_genre <- success_by_genre_decade |>
+    filter(genres != "\\N" & !is.na(genres), decade %in% c(1990, 2000, 2010)) |>
+    spread(decade, success_count, fill = 0) |>
+    mutate(growth = `2010` - `1990`) |>
+    arrange(desc(growth))
+
+growth_in_genre_long <- success_by_genre_decade |>
+  filter(genres != "\\N" & !is.na(genres), decade %in% c(1990, 2000, 2010)) |>
+  arrange(desc(success_count))
+
+# Create the animated bar chart
+p <- ggplot(growth_in_genre_long, aes(x = reorder(genres, success_count), y = success_count, fill = genres)) +
+  geom_bar(stat = "identity", show.legend = FALSE) +
+  geom_text(aes(label = scales::comma(round(success_count, 0))),  # Add labels without decimals
+            hjust = -0.2, size = 4) +  # Adjust position and size of labels
+  coord_flip() +
+  labs(title = "Growth in Genre Success (2010s vs 1990s): {closest_state}",
+       x = "Genres",
+       y = "Growth") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1)) +  # Ensure x-axis labels are horizontal
+  transition_states(decade, transition_length = 2, state_length = 1) +
+  ease_aes('linear') +
+  ylim(0, 30000)
+
+# Animate the plot
+animate(p, nframes = 100, fps = 10)
+```
+
+**Drama** has become the most popular genre in recent years, with a significant growth of successful productions from 1990 to 2010. This is followed by **Comedy**, **Action**, **Crime**, and **Adventure**, all of which also experienced significant growth in success over this period. These genres have consistently attracted larger audiences and produced more successful movies over the past few decades, showing a trend of increasing popularity.
+
+## Successful Personnel in the Genre
+
+```{R succes_acor_director}
+#| code-fold: true
+#| message: false
+# Filter for action movies that are successful
+successful_action_movies <- TITLE_BASICS |>
+    filter(str_detect(genres, "Action")) |>  # Only action genre
+    inner_join(TITLE_RATINGS, by = "tconst") |>
+    filter(SuccessScore > success_threshold)  # Use success threshold from earlier
+
+# Find the actors in these successful movies
+successful_actors <- TITLE_PRINCIPALS |>
+    filter(tconst %in% successful_action_movies$tconst) |>
+    inner_join(NAME_BASICS, by = "nconst") |>  # Get actor names
+    filter(category == "actor") |>  # Filter for actors
+    group_by(primaryName) |>
+    summarize(success_count = n()) |>
+    arrange(desc(success_count)) |>  # Sort by success count
+    head(10)  # Limit to top 10 actors
+
+# Find the directors in these successful movies
+# Split the 'directors' column in TITLE_CREW to separate individual director nconsts
+library(tidyr)
+
+successful_directors <- TITLE_CREW |>
+    filter(tconst %in% successful_action_movies$tconst) |>  # Only action genre movies
+    separate_rows(directors, sep = ",") |>  # Split the directors column by commas
+    inner_join(NAME_BASICS, by = c("directors" = "nconst")) |>  # Join with NAME_BASICS
+    group_by(primaryName) |>  # Group by director name
+    summarize(success_count = n()) |>  # Count successful movies
+    arrange(desc(success_count)) |>  # Sort by success count
+    head(10)  # Limit to top 5 directors
+```
+
+```{R director_plot}
+#| code-fold: true
+#| warning: false
+pd <- ggplot(successful_directors, aes(x = reorder(primaryName, success_count), y = success_count, color = primaryName)) +
+  geom_point(size = 5, alpha = 0.7) +
+  labs(title = "Top Successful Directors in Action Movies: {closest_state}",
+       x = "Directors",
+       y = "Success Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Tilt x-axis labels for readability
+        legend.position = "none")
+
+# Add animation
+p_directors_anim <- pd +
+  transition_states(primaryName, transition_length = 2, state_length = 1) +
+  shadow_mark() +
+  ease_aes('linear')
+
+# Animate the scatter plot
+animate(p_directors_anim, nframes = 100, fps = 10)
+```
+
+```{R actor_plot}
+#| code-fold: true
+#| warning: false
+pa <- ggplot(successful_actors, aes(x = reorder(primaryName, success_count), y = success_count, color = primaryName)) +
+  geom_point(size = 5, alpha = 0.7) +
+  labs(title = "Top Successful Actors in Action Movies: {closest_state}",
+       x = "Actors",
+       y = "Success Count") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  # Tilt x-axis labels
+        legend.position = "none")
+
+# Add animation
+p_actors_anim <- pa +
+  transition_states(primaryName, transition_length = 2, state_length = 1) +
+  shadow_mark() +
+  ease_aes('linear')
+
+# Animate the scatter plot
+animate(p_actors_anim, nframes = 100, fps = 10)
+```
+
+Based on these insights, **Action/Adventure** was selected as the genre for the proposed movie.
+
+Key Personnel For the project, the following key personnel were selected:
+
+-   **Tom Cruise** (Director): Cruise, known for his success both as an actor and producer, has a proven track record in the Action genre, with blockbusters like *Top Gun: Maverick* (2022) and *Mission: Impossible* series.
+
+-   **Chris Hemsworth** (Actor): Hemsworth, famous for his role in Thor and the Avengers series, brings strong action credentials and fan appeal.
+
+-   **Zendaya** (Actor): As an up-and-coming talent, Zendaya’s performances in *Dune* and *Spider-Man: No Way Home* showcase her versatility and rising star power.
+
+## Nostalgia and Remakes
+
+**Remake of a Classic Movie**: The classic film chosen for the remake is **The Great Escape** (1963). With its strong IMDb rating (8.2/10) and over 200,000 votes, it fits the Action/Adventure genre. The original film's high rating and memorable ensemble cast make it ideal for modern retelling with *Tom Cruise*, *Chris Hemsworth*, and *Zendaya*.
+
+## Elevator Pitch From Director
+
+Tom Cruise, the visionary behind Mission: Impossible, and from actors Chris Hemsworth, beloved star of Thor, and Zendaya, Hollywood’s rising star from Dune, comes a timeless tale of adventure, escape, and survival—The Great Escape.
+
+In this modern remake of the classic 1963 film, a group of prisoners of war plot a daring escape from a heavily fortified enemy camp. Combining intense action sequences with a stellar cast, this film is set to captivate a new generation of audiences while honoring the original masterpiece. Coming soon to theaters.
