@@ -45,12 +45,10 @@ library(DT)           # For interactive data tables
 
 *Data I: `US House` and `Presidential` Election Votes from 1976 to 2022*
 
-We will begin our data setup by downloading two key datasets provided by the [MIT Election Data Science Lab](https://electionlab.mit.edu/data#data):[^1]
-[^1]: MIT Election Data + Science Lab. (n.d.). *MIT Election Lab*. MIT Election Data + Science Lab. https://electionlab.mit.edu/
+We will begin our data setup by downloading two key datasets provided by the [MIT Election Data Science Lab](https://electionlab.mit.edu/data#data):\[\^1\] \[\^1\]: MIT Election Data + Science Lab. (n.d.). *MIT Election Lab*. MIT Election Data + Science Lab. https://electionlab.mit.edu/
 
-1. The [1976–2022 U.S. House Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2) dataset, which includes vote counts for US House elections across this period.
-2. The [1976-2020 US Presidential Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/42MVDX) dataset, covering presidential vote counts.
-These files can be accessed and downloaded directly through the provided links.
+1.  The [1976–2022 U.S. House Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2) dataset, which includes vote counts for US House elections across this period.
+2.  The [1976-2020 US Presidential Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/42MVDX) dataset, covering presidential vote counts. These files can be accessed and downloaded directly through the provided links.
 
 ```{R, US House & President data}
 #| echo: TRUE
@@ -80,7 +78,7 @@ PRESIDENT_DATA <- readr::read_csv("1976-2020-president.csv")
 
 The second key dataset we will need for our analysis includes Congressional Boundary shapefiles. These files provide spatial data for all U.S. congressional districts and are essential for visualizing and analyzing electoral data by district.
 
-1. Congressional Boundaries (1789–2012): These shapefiles are available from Jeffrey B. Lewis, Brandon DeVine, Lincoln Pritcher, and Kenneth C. Martis and cover all U.S. congressional districts from 1789 to 2012. They can be downloaded from [UCLA’s Congressional Districts project](https://cdmaps.polisci.ucla.edu/).
+1.  Congressional Boundaries (1789–2012): These shapefiles are available from Jeffrey B. Lewis, Brandon DeVine, Lincoln Pritcher, and Kenneth C. Martis and cover all U.S. congressional districts from 1789 to 2012. They can be downloaded from [UCLA’s Congressional Districts project](https://cdmaps.polisci.ucla.edu/).
 
 ```{R}
 #| echo: TRUE
@@ -122,7 +120,7 @@ get_cdmaps_file("districts095")
 get_cdmaps_file("districts094")
 ```
 
-2. Congressional Boundaries (2014–present): For more recent boundaries, we will use the shapefiles provided by the U.S. Census Bureau, which include congressional districts from 2014 to the present. These can be accessed at the [U.S. Census Bureau’s TIGER/Line files](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) site.
+2.  Congressional Boundaries (2014–present): For more recent boundaries, we will use the shapefiles provided by the U.S. Census Bureau, which include congressional districts from 2014 to the present. These can be accessed at the [U.S. Census Bureau’s TIGER/Line files](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) site.
 
 ```{R}
 #| echo: TRUE
@@ -146,14 +144,14 @@ if (!file.exists("districts116.zip")) {download.file("https://www2.census.gov/ge
 if (!file.exists("tl_2020_us_state.zip")) {download.file("https://www2.census.gov/geo/tiger/TIGER2020/STATE/tl_2020_us_state.zip", destfile = "us_states_shapes.zip")}
 
 ```
+
 These spatial datasets are crucial for accurate mapping and analysis of congressional district boundaries over time.
 
 ## Initial Exploration of Vote Count Data
 
-In this section, we explore the vote count data from the MIT Election Data Science Lab to answer several key questions about electoral trends in the US. 
-This includes analyzing changes in House seats, the impact of New York’s “fusion” voting system, and comparing presidential and congressional vote patterns.
+In this section, we explore the vote count data from the MIT Election Data Science Lab to answer several key questions about electoral trends in the US. This includes analyzing changes in House seats, the impact of New York’s “fusion” voting system, and comparing presidential and congressional vote patterns.
 
-1. Which states have gained and lost the most seats in the US House of Representatives between 1976 and 2022?
+1.  Which states have gained and lost the most seats in the US House of Representatives between 1976 and 2022?
 
 ```{R table 1, graph 1}
 #| message: false
@@ -192,15 +190,21 @@ ggplot(seat_change, aes(x = reorder(state, seat_change), y = seat_change, fill =
   scale_fill_manual(values = c("red", "blue"), labels = c("Lost Seats", "Gained Seats")) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+```{R}
+#| message: false
+#| warning: false
+#| code-fold: true
 
 # Display data table for seat change
 datatable(setNames(seat_change, c("Year", "State", "Seats 1976", "Seats  2022", "Seat Change")),
           options = list(pageLength = 10, autoWidth = TRUE),
           caption = "Table 1: Change in seats in the US House of Representatives between 1976 and 2022")
 ```
+
 This analysis highlights the states that saw increases or decreases in their House representation over this period. States with significant population growth, such as *Texas* and *Florida*, gained over *27 seats* collectively, reflecting substantial increases in representation. Conversely, states with slower growth or population decline saw reductions in their House seats, indicating regional demographic shifts impacting representation.
 
-2. Are there any elections in our data where the election would have had a different outcome if the “fusion” system was not used and candidates only received the votes their received from their “major party line” (Democrat or Republican) and not their total number of votes across all lines?
+2.  Are there any elections in our data where the election would have had a different outcome if the “fusion” system was not used and candidates only received the votes their received from their “major party line” (Democrat or Republican) and not their total number of votes across all lines?
 
 ```{R table 2}
 #| message: false
@@ -238,6 +242,11 @@ result_table <- outcome_change |>
   filter(outcome_changed) |>
   select(year, state, state_po, winner_with_fusion, winner_without_fusion, outcome_changed) |>
   distinct()
+```
+```{R}
+#| message: false
+#| warning: false
+#| code-fold: true
 
 # Format the table to display 10 rows with the caption at the bottom
 datatable(result_table,
@@ -245,6 +254,7 @@ datatable(result_table,
           caption = "Table 2: Election Fusion Winners (Excluding Write-in, Blank Candidates, and NA in Party Field)") |>
   formatStyle(columns = names(result_table), fontSize = '100%')
 ```
+
 This table shows the historical elections for which the outcome would have been different had not been for the fusion voting system.
 
 3.  Do presidential candidates tend to run ahead of or run behind congressional candidates in the same state? That is, does a Democratic candidate for president tend to get more votes in a given state than all Democratic congressional candidates in the same state?
@@ -298,19 +308,18 @@ ggplot(selected_parties, aes(x = year, y = avg_vote_diff, color = party)) +
   theme_minimal() |>
   theme(legend.position = "bottom")
 ```
-The table and graph above show the vote difference between presidential and congressional candidates across various states, broken down by party.
-Presidential candidates' performance does not always align with their party's performance in congressional races. In some cases, the presidential candidates outperform their congressional counterparts, while in others, it's the reverse.
-The vote differences can vary significantly across states and parties, indicating that voter preferences for presidential and congressional candidates can be quite different.
- 
+
+The table and graph above show the vote difference between presidential and congressional candidates across various states, broken down by party. Presidential candidates' performance does not always align with their party's performance in congressional races. In some cases, the presidential candidates outperform their congressional counterparts, while in others, it's the reverse. The vote differences can vary significantly across states and parties, indicating that voter preferences for presidential and congressional candidates can be quite different.
+
 ## Chloropleth Visualization: 2000 Presidential Elections
 
 From the district file downloaded earlier, we will need to read and extract the shape files for further analysis of the 2000 presidential elections.
 
-```{R  zip file extracion}
+```{R zip file extracion}
 #| message: false
 #| warning: false
 #| code-fold: true
-#| echo: FALSE
+#| echo: false
 
 zip_file <- "districts106.zip"
 
@@ -533,10 +542,7 @@ datatable(setNames(state_wide_winner_take_all, c("Year", "Winning Candidate", "E
           caption = "Table 4: State-Wide Winner-Take-All: Presidential Winning Candidate")
 ```
 
-The WTA method tends to exaggerate the margin of victory for the winning candidate, disproportionately amplifying the impact of swing states.
-It can produce outcomes that diverge significantly from the national popular vote. For example:
-* 2000 Election: George W. Bush won the presidency with 271 ECVs to Al Gore’s 266, despite losing the popular vote.
-* 2016 Election: Donald Trump won the presidency with 305 ECVs to Hillary Clinton’s 227, again losing the popular vote.
+The WTA method tends to exaggerate the margin of victory for the winning candidate, disproportionately amplifying the impact of swing states. It can produce outcomes that diverge significantly from the national popular vote. For example: \* 2000 Election: George W. Bush won the presidency with 271 ECVs to Al Gore’s 266, despite losing the popular vote. \* 2016 Election: Donald Trump won the presidency with 305 ECVs to Hillary Clinton’s 227, again losing the popular vote.
 
 ### District-Wide Winner-Take-All + State-Wide "At Large" Votes
 
@@ -581,8 +587,7 @@ datatable(setNames(district_wide_winner_take_all, c("Year", "Winning Candidate",
           caption = "Table 5: District-Wide Winner-Take-All: Presidential Winning Candidate")
 ```
 
-This scheme introduces more granularity but can still deviate significantly from the popular vote due to district-level gerrymandering.
-In elections like 2012, Barack Obama won both Maine's districts and the state, earning all its ECVs. In 2020, Nebraska awarded some ECVs to Joe Biden while awarding most to Donald Trump.
+This scheme introduces more granularity but can still deviate significantly from the popular vote due to district-level gerrymandering. In elections like 2012, Barack Obama won both Maine's districts and the state, earning all its ECVs. In 2020, Nebraska awarded some ECVs to Joe Biden while awarding most to Donald Trump.
 
 ### State-Wide Proportional Allocation
 
@@ -621,8 +626,7 @@ This scheme aligns more closely with the popular vote, reducing distortions caus
 
 ### National Proportional Allocation
 
-Electoral votes are distributed proportionally across the entire nation rather than by state, based on the percentage of the national popular vote each candidate receives.
-This system eliminates the state-based winner-take-all feature and distributes ECVs based purely on national vote share.
+Electoral votes are distributed proportionally across the entire nation rather than by state, based on the percentage of the national popular vote each candidate receives. This system eliminates the state-based winner-take-all feature and distributes ECVs based purely on national vote share.
 
 ```{R table 7}
 #| code-fold: true
