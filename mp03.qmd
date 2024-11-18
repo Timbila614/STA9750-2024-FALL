@@ -1,8 +1,5 @@
----
-title: "Mini-Project #03: Do Proportional Electoral College Allocations Yield a More Representative Presidency?"
-author: "Timbila Nikiema"
-editor: visual
----
+# Mini-Project #03: Do Proportional Electoral College Allocations Yield a More Representative Presidency?
+Author: Timbila Nikiema
 
 ## INTRODUCTION
 
@@ -191,6 +188,7 @@ ggplot(seat_change, aes(x = reorder(state, seat_change), y = seat_change, fill =
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
+
 ```{R}
 #| message: false
 #| warning: false
@@ -333,7 +331,7 @@ shapefile_106 <- st_read(file.path("districtShapes/districts106.shp"))
 
 The following R code creates a choropleth map visualizing the 2000 U.S. presidential election results by state. Using election data joined with U.S. state geometries, the map displays each state colored by the winning party (Republican or Democratic). Insets for Alaska and Hawaii are added for clarity, and each state is labeled with its two-letter postal abbreviation for easier identification. This visualization provides a clear, geographic perspective of the electoral outcomes across the contiguous United States, with separate, scaled-down views of Alaska and Hawaii.
 
-```{R, fig.heigth=8, fig.width=16}
+```{R, fig.heigth=10, fig.width=22}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -398,22 +396,19 @@ print(combined_map)
 
 ## Chloropleth Visualization: Presidential Elections 1976 - 2020
 
-```{R, fig.heigth=8, fig.width=16}
-#| message: false
-#| warning: false
+```{R, echo=TRUE, results = "hide", fig.heigth=10, fig.width=22}
+#| message: FALSE
+#| warning: FALSE
 #| code-fold: true
- 
+
 # Task 6: Advanced Chloropleth Visualization of Electoral College Results
 
 # Modify your previous code to make an animated version showing election results over time.
-# Aggregate election data by year, state, and party
-save_directory <- "~/STA9750-2024-FALL/docs"
-  if(!dir.exists(save_directory)) {dir.create(save_directory)}
 
 # List of election years
 election_years <- c(1976, 1980, 1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020)
 
-# majority of the code is the same as above used to find the winner in 2000, but this time including the year
+# Function to process election results for a specific year
 winner_by_year <- function(input_year) {
   PRESIDENT_DATA |>
     filter(year == input_year) |> # Filter for the specific year
@@ -424,25 +419,27 @@ winner_by_year <- function(input_year) {
     ungroup() |>
     select(state, party_simplified) |>
     rename(winning_party = party_simplified) |>
-    mutate(year = input_year) # add year to the table
+    mutate(year = input_year) # Add year to the table
 }
-# Combine each year results into one datatable
+
+# Combine each year's results into one data table
 election_results <- bind_rows(lapply(election_years, winner_by_year))
-  
-# State shape files
-states_shapes <- st_read("tl_2020_us_state.shp")
-                       
-# Join the election data with the shapefile for all years
-states_shapes <- states_shapes |> 
+
+# Load the state shape files
+states_shapes <- st_read("tl_2020_us_state.shp") |>
   mutate(STATE = toupper(trimws(NAME)))
 
-# If `election_results` is not an sf object, join without st_join
-election_results <- states_shapes |> 
+# Exclude Alaska and Hawaii
+states_shapes <- states_shapes |> 
+  filter(!STATE %in% c("ALASKA", "HAWAII"))
+
+# Join the election data with the shapefile for all years
+election_results <- states_shapes |>
   left_join(election_results |> mutate(state = toupper(trimws(state))), 
             by = c("STATE" = "state")) |> 
   filter(!is.na(year)) # Excluding any NAs
 
-# Creating the animated plot
+# Create the animated plot
 animate_election_results <- ggplot(election_results, aes(geometry = geometry, fill = winning_party), color = "black") +
   geom_sf() +
   scale_fill_manual(values = c("DEMOCRAT" = "skyblue3", "REPUBLICAN" = "firebrick1")) +
@@ -450,57 +447,17 @@ animate_election_results <- ggplot(election_results, aes(geometry = geometry, fi
   labs(title = "Graph 4: Presidential Election State Results", fill = "Winning Party") +
   theme(legend.position = "bottom") +
   transition_states(year, transition_length = 0, state_length = 1) +
-  coord_sf(xlim = c(-175, -60), expand = FALSE)
+  coord_sf(xlim = c(-125, -65), ylim = c(25, 50), expand = FALSE) # Exclude Alaska and Hawaii
 
-animate(animate_election_results, renderer = gifski_renderer(file = paste0(save_directory, "/election_results_animation.gif")))
+# Save the animation as a GIF
+animate(
+  animate_election_results,
+  renderer = gifski_renderer(file = paste0(save_directory, "/election_results_animation2.gif")),
+  width = 1000,
+  height = 600,
+  fps = 10)
 
 ```
-
-Animated Chloropleth Visualization
-
-```{R, fig.heigth=8, fig.width=16}
-#| message: false
-#| warning: false
-#| code-fold: true
-
-# Task 6: Advanced Chloropleth Visualization of Electoral College Results
-
-# Modify your previous code to make an animated version showing election results over time.
-# Aggregate election data by year, state, and party
-election_results <- PRESIDENT_DATA |>
-  group_by(year, state, party_simplified) |>
-  summarize(total_votes = sum(candidatevotes), .groups = "drop") |>
-  group_by(year, state) |>
-  slice_max(total_votes, n = 1) |>
-  ungroup() |>
-  select(year, state, party_simplified) |>
-  rename(Party = party_simplified)
-
-# Join shapefile with election results
-shapefile_us <- shapefile_106 |>
-  mutate(STATENAME = toupper(trimws(STATENAME))) |> 
-  left_join(election_results, join_by(STATENAME == state))
-
-# Create the base map with facets for years
-animated_map <- ggplot(shapefile_us, aes(geometry = geometry, fill = Party)) +
-  geom_sf(color = "black", size = 0.1) +
-  scale_fill_manual(values = c("DEMOCRAT" = "skyblue3", "REPUBLICAN" = "firebrick1")) +
-  theme_minimal() +
-  labs(title = "Graph 5: US Presidential Election Results by State: {closest_state}", 
-       fill = "Party") +
-  theme(legend.position = "bottom",
-        panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        strip.background = element_blank(),
-        strip.text = element_text(size = 12, face = "bold")) +
-  coord_sf(xlim = c(-130, -60), ylim = c(20, 50), expand = FALSE) +
-  facet_wrap(~year, ncol = 1) +
-  transition_states(year, transition_length = 2, state_length = 1) +
-  ease_aes('linear')
-
-animated_map
-```
-
 ## Comparing the Effects of ECV Allocation Rules
 
 To evaluate the fairness and effects of different Electoral College Vote (ECV) allocation schemes, we'll walk through a series of steps for each allocation mentioned strategies. The analysis will include comparing each allocation scheme's results against the historical winners to uncover any systematic biases, and then assessing which scheme is "fairest" in terms of how it impacts election outcomes.
@@ -509,7 +466,7 @@ To evaluate the fairness and effects of different Electoral College Vote (ECV) a
 
 The candidate with the most votes in the state wins all the state's electoral votes.
 
-```{R table 4}
+```{R}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -526,7 +483,7 @@ state_wide_winner_take_all <- PRESIDENT_DATA |>
   group_by(year, state, candidate) |>
   summarize(total_votes = sum(candidatevotes), .groups = "drop") |>
   group_by(year, state) |>
-  slice_max(order_by = total_votes, n = 1, with_ties = FALSE) |> # find the winner of each state based on who has the most total votes
+  slice_max(order_by = total_votes, n = 1, with_ties = FALSE) |> # find the winner of each state based on total votes
   rename(winner = candidate) # rename for conventional understanding
 
 # join the state, winner, and number of electoral votes & sum which candidate that gets the most electoral votes
@@ -536,6 +493,12 @@ state_wide_winner_take_all <- state_wide_winner_take_all |>
   group_by(year, winner) |>
   summarize(total_electoral_votes = sum(electoral_votes)) |> # sum electoral votes across all states by candidate each year
   slice_max(order_by = total_electoral_votes, n = 1, with_ties = FALSE)
+```
+
+```{R table 4}
+#| code-fold: true
+#| message: false
+#| warning: false
 
 datatable(setNames(state_wide_winner_take_all, c("Year", "Winning Candidate", "Electoral Votes")),
           options = list(pageLength = 12, autoWidth = TRUE),
@@ -548,7 +511,7 @@ The WTA method tends to exaggerate the margin of victory for the winning candida
 
 States like Maine and Nebraska use this system, where electors are assigned both based on the winners of each congressional district (district-level WTA) and a set of electors awarded to the winner of the statewide vote. This is a hybrid of district-level and state-wide allocation.
 
-```{R table 5}
+```{R}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -581,6 +544,12 @@ district_wide_winner_take_all <- district_winner |>
   summarize(electoral_votes = sum(total_electoral_votes)) |>
   slice_max(order_by = electoral_votes, n = 1, with_ties = FALSE) |>
   drop_na() # get rid of the non-presidential election years
+```
+
+```{R table 5}
+#| code-fold: true
+#| message: false
+#| warning: false
 
 datatable(setNames(district_wide_winner_take_all, c("Year", "Winning Candidate", "Electoral Votes")),
           options = list(pageLength = 12, autoWidth = TRUE),
@@ -593,7 +562,7 @@ This scheme introduces more granularity but can still deviate significantly from
 
 The state's electoral votes are distributed proportionally based on the percentage of the popular vote each candidate receives. For example, if a candidate wins 40% of the vote in a state with 10 ECVs, they get 4 ECVs.
 
-```{R table 6}
+```{R}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -616,6 +585,12 @@ state_wide_proportional <- state_wide_proportional |>
   summarize(total_electoral_votes = sum(votes_received)) |>
   slice_max(order_by = total_electoral_votes, n = 1, with_ties = FALSE) |>
   rename(winner = candidate)
+```
+
+```{R table 6}
+#| code-fold: true
+#| message: false
+#| warning: false
 
 datatable(setNames(state_wide_proportional, c("Year", "Winning Candidate", "Electoral Votes")),
           options = list(pageLength = 12, autoWidth = TRUE),
@@ -628,7 +603,7 @@ This scheme aligns more closely with the popular vote, reducing distortions caus
 
 Electoral votes are distributed proportionally across the entire nation rather than by state, based on the percentage of the national popular vote each candidate receives. This system eliminates the state-based winner-take-all feature and distributes ECVs based purely on national vote share.
 
-```{R table 7}
+```{R}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -656,6 +631,12 @@ national_proportional <- PRESIDENT_DATA |>
   group_by(year) |>
   slice_max(order_by = electoral_votes_received, n = 1, with_ties = FALSE) |>
   rename(winner = candidate)
+```
+
+```{R table 7}
+#| code-fold: true
+#| message: false
+#| warning: false
 
 datatable(setNames(national_proportional, c("Year", "Winning Candidate", "Electoral Votes")),
           options = list(pageLength = 12, autoWidth = TRUE),
