@@ -397,7 +397,7 @@ print(combined_map)
 
 ## Chloropleth Visualization: Presidential Elections 1976 - 2020
 
-```{R Animated Chloropleth graph 4, echo=TRUE, results = "hide", fig.heigth=10, fig.width=22}
+```{R Animated Chloropleth graph 4, results = "hide", fig.heigth=10, fig.width=22}
 #| message: FALSE
 #| warning: FALSE
 #| code-fold: true
