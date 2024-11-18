@@ -19,7 +19,7 @@ The goal is not to produce a "correct" answer but to foster a thoughtful, data-d
 
 For our analysis, we will be using R, leveraging its powerful data manipulation and visualization capabilities. To ensure we have all the necessary tools, we will load the following libraries:
 
-```{R, libraries}
+```{R Libraries}
 #| echo: TRUE
 #| message: false
 #| warning: false
@@ -40,14 +40,14 @@ library(sf)           # For spatial data manipulation
 library(DT)           # For interactive data tables
 ```
 
-*Data I: `US House` and `Presidential` Election Votes from 1976 to 2022*
+*Data I: US House and Presidential Election Votes from 1976 to 2022*
 
-We will begin our data setup by downloading two key datasets provided by the [MIT Election Data Science Lab](https://electionlab.mit.edu/data#data):\[\^1\] \[\^1\]: MIT Election Data + Science Lab. (n.d.). *MIT Election Lab*. MIT Election Data + Science Lab. https://electionlab.mit.edu/
+We will begin our data setup by downloading two key datasets provided by the [MIT Election Data Science Lab](https://electionlab.mit.edu/data#data):[^1]: MIT Election Data + Science Lab. (n.d.). *MIT Election Lab*. MIT Election Data + Science Lab. https://electionlab.mit.edu/
 
 1.  The [1976–2022 U.S. House Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/IG0UN2) dataset, which includes vote counts for US House elections across this period.
 2.  The [1976-2020 US Presidential Elections](https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/42MVDX) dataset, covering presidential vote counts. These files can be accessed and downloaded directly through the provided links.
 
-```{R, US House & President data}
+```{R US House & President data}
 #| echo: TRUE
 #| message: false
 #| warning: false
@@ -77,7 +77,7 @@ The second key dataset we will need for our analysis includes Congressional Boun
 
 1.  Congressional Boundaries (1789–2012): These shapefiles are available from Jeffrey B. Lewis, Brandon DeVine, Lincoln Pritcher, and Kenneth C. Martis and cover all U.S. congressional districts from 1789 to 2012. They can be downloaded from [UCLA’s Congressional Districts project](https://cdmaps.polisci.ucla.edu/).
 
-```{R}
+```{R Shapefile Import part 1}
 #| echo: TRUE
 #| message: false
 #| warning: false
@@ -119,7 +119,7 @@ get_cdmaps_file("districts094")
 
 2.  Congressional Boundaries (2014–present): For more recent boundaries, we will use the shapefiles provided by the U.S. Census Bureau, which include congressional districts from 2014 to the present. These can be accessed at the [U.S. Census Bureau’s TIGER/Line files](https://www.census.gov/geographies/mapping-files/time-series/geo/tiger-line-file.html) site.
 
-```{R}
+```{R shapefile import part 2}
 #| echo: TRUE
 #| message: false
 #| warning: false
@@ -150,7 +150,7 @@ In this section, we explore the vote count data from the MIT Election Data Scien
 
 1.  Which states have gained and lost the most seats in the US House of Representatives between 1976 and 2022?
 
-```{R table 1, graph 1}
+```{R Graph 1}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -189,7 +189,7 @@ ggplot(seat_change, aes(x = reorder(state, seat_change), y = seat_change, fill =
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-```{R}
+```{R Table 1}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -204,7 +204,7 @@ This analysis highlights the states that saw increases or decreases in their Hou
 
 2.  Are there any elections in our data where the election would have had a different outcome if the “fusion” system was not used and candidates only received the votes their received from their “major party line” (Democrat or Republican) and not their total number of votes across all lines?
 
-```{R table 2}
+```{R Table 2}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -240,11 +240,6 @@ result_table <- outcome_change |>
   filter(outcome_changed) |>
   select(year, state, state_po, winner_with_fusion, winner_without_fusion, outcome_changed) |>
   distinct()
-```
-```{R}
-#| message: false
-#| warning: false
-#| code-fold: true
 
 # Format the table to display 10 rows with the caption at the bottom
 datatable(result_table,
@@ -259,7 +254,7 @@ This table shows the historical elections for which the outcome would have been 
 
 Does this trend differ over time? Does it differ across states or across parties? Are any presidents particularly more or less popular than their co-partisans?
 
-```{R table 3, graph 2}
+```{R Table 3}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -296,6 +291,12 @@ datatable(setNames(tabledata, c("State", "Party", "Vote Difference")),
           options = list(pageLength = 10, autoWidth = TRUE),
           caption = "Table 3: Presidential Votes vs Congress Votes") |>
   formatRound(columns = "Vote Difference", digits = 0)
+```
+
+```{R Graph 2}
+#| message: false
+#| warning: false
+#| code-fold: true
 
 # Plot average vote difference by year and party
 ggplot(selected_parties, aes(x = year, y = avg_vote_diff, color = party)) +
@@ -317,7 +318,7 @@ From the district file downloaded earlier, we will need to read and extract the 
 #| message: false
 #| warning: false
 #| code-fold: true
-#| echo: false
+#| echo: TRUE
 
 zip_file <- "districts106.zip"
 
@@ -331,7 +332,7 @@ shapefile_106 <- st_read(file.path("districtShapes/districts106.shp"))
 
 The following R code creates a choropleth map visualizing the 2000 U.S. presidential election results by state. Using election data joined with U.S. state geometries, the map displays each state colored by the winning party (Republican or Democratic). Insets for Alaska and Hawaii are added for clarity, and each state is labeled with its two-letter postal abbreviation for easier identification. This visualization provides a clear, geographic perspective of the electoral outcomes across the contiguous United States, with separate, scaled-down views of Alaska and Hawaii.
 
-```{R, fig.heigth=10, fig.width=22}
+```{R Chloropleth graph 3, fig.heigth=10, fig.width=22}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -396,7 +397,7 @@ print(combined_map)
 
 ## Chloropleth Visualization: Presidential Elections 1976 - 2020
 
-```{R, echo=TRUE, results = "hide", fig.heigth=10, fig.width=22}
+```{R Animated Chloropleth graph 4, echo=TRUE, results = "hide", fig.heigth=10, fig.width=22}
 #| message: FALSE
 #| warning: FALSE
 #| code-fold: true
@@ -444,18 +445,13 @@ animate_election_results <- ggplot(election_results, aes(geometry = geometry, fi
   geom_sf() +
   scale_fill_manual(values = c("DEMOCRAT" = "skyblue3", "REPUBLICAN" = "firebrick1")) +
   theme_minimal() +
-  labs(title = "Graph 4: Presidential Election State Results", fill = "Winning Party") +
+  labs(title = "Graph 4: Presidential Election State Results {closest_state}", fill = "Winning Party") +
   theme(legend.position = "bottom") +
   transition_states(year, transition_length = 0, state_length = 1) +
   coord_sf(xlim = c(-125, -65), ylim = c(25, 50), expand = FALSE) # Exclude Alaska and Hawaii
 
-# Save the animation as a GIF
-animate(
-  animate_election_results,
-  renderer = gifski_renderer(file = paste0(save_directory, "/election_results_animation2.gif")),
-  width = 1000,
-  height = 600,
-  fps = 10)
+# Print the animated graph
+animate(animate_election_results, width = 1000, height = 600, fps = 10)
 
 ```
 ## Comparing the Effects of ECV Allocation Rules
@@ -466,7 +462,7 @@ To evaluate the fairness and effects of different Electoral College Vote (ECV) a
 
 The candidate with the most votes in the state wins all the state's electoral votes.
 
-```{R}
+```{R State WTA}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -495,7 +491,7 @@ state_wide_winner_take_all <- state_wide_winner_take_all |>
   slice_max(order_by = total_electoral_votes, n = 1, with_ties = FALSE)
 ```
 
-```{R table 4}
+```{R Table 4}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -511,7 +507,7 @@ The WTA method tends to exaggerate the margin of victory for the winning candida
 
 States like Maine and Nebraska use this system, where electors are assigned both based on the winners of each congressional district (district-level WTA) and a set of electors awarded to the winner of the statewide vote. This is a hybrid of district-level and state-wide allocation.
 
-```{R}
+```{R District WTA}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -546,7 +542,7 @@ district_wide_winner_take_all <- district_winner |>
   drop_na() # get rid of the non-presidential election years
 ```
 
-```{R table 5}
+```{R Table 5}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -562,7 +558,7 @@ This scheme introduces more granularity but can still deviate significantly from
 
 The state's electoral votes are distributed proportionally based on the percentage of the popular vote each candidate receives. For example, if a candidate wins 40% of the vote in a state with 10 ECVs, they get 4 ECVs.
 
-```{R}
+```{R State Proportion Allocation}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -587,7 +583,7 @@ state_wide_proportional <- state_wide_proportional |>
   rename(winner = candidate)
 ```
 
-```{R table 6}
+```{R Table 6}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -603,7 +599,7 @@ This scheme aligns more closely with the popular vote, reducing distortions caus
 
 Electoral votes are distributed proportionally across the entire nation rather than by state, based on the percentage of the national popular vote each candidate receives. This system eliminates the state-based winner-take-all feature and distributes ECVs based purely on national vote share.
 
-```{R}
+```{R National Proportion Allocation}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -633,7 +629,7 @@ national_proportional <- PRESIDENT_DATA |>
   rename(winner = candidate)
 ```
 
-```{R table 7}
+```{R Table 7}
 #| code-fold: true
 #| message: false
 #| warning: false
@@ -643,7 +639,7 @@ datatable(setNames(national_proportional, c("Year", "Winning Candidate", "Electo
           caption = "Table 7: National Proportional: Presidential Winning Candidate")
 ```
 
-```{R comparison table}
+```{R Comparison Table}
 #| code-fold: true
 #| message: false
 #| warning: false
