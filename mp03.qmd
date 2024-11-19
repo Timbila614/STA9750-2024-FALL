@@ -332,7 +332,7 @@ shapefile_106 <- st_read(file.path("districtShapes/districts106.shp"))
 
 The following R code creates a choropleth map visualizing the 2000 U.S. presidential election results by state. Using election data joined with U.S. state geometries, the map displays each state colored by the winning party (Republican or Democratic). Insets for Alaska and Hawaii are added for clarity, and each state is labeled with its two-letter postal abbreviation for easier identification. This visualization provides a clear, geographic perspective of the electoral outcomes across the contiguous United States, with separate, scaled-down views of Alaska and Hawaii.
 
-```{R Chloropleth graph 3, fig.heigth=10, fig.width=22}
+```{R Chloropleth graph 3, fig.heigth=16, fig.width=28}
 #| message: false
 #| warning: false
 #| code-fold: true
@@ -397,7 +397,7 @@ print(combined_map)
 
 ## Chloropleth Visualization: Presidential Elections 1976 - 2020
 
-```{R Animated Chloropleth graph 4, fig.heigth=10, fig.width=22}
+```{R Animated Chloropleth graph 4, fig.heigth=16, fig.width=28}
 #| message: FALSE
 #| warning: FALSE
 #| code-fold: true
