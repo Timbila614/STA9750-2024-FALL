@@ -679,3 +679,5 @@ comparison_table |>
 Among the three methods, Proportional Allocation is the fairest in terms of aligning with the popular vote and reducing distortions caused by state size or swing state dynamics. However, its drawback of potentially not producing a decisive winner suggests that reforms should carefully weigh the trade-offs between fairness and administrative simplicity.
 
 The Winner-Take-All method is the least fair due to its high distortions, as seen in elections like 2000 and 2016. Meanwhile, District-Based Allocation offers granularity but suffers from gerrymandering issues. Proportional allocation represents the best balance for fairness and voter representation.
+
+
