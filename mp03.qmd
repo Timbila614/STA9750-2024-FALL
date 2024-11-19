@@ -451,7 +451,7 @@ animate_election_results <- ggplot(election_results, aes(geometry = geometry, fi
   coord_sf(xlim = c(-125, -65), ylim = c(25, 50), expand = FALSE) # Exclude Alaska and Hawaii
 
 # Print the animated graph
-animate(animate_election_results, width = 1000, height = 600, fps = 10)
+animate(animate_election_results, fps = 10)
 
 ```
 ## Comparing the Effects of ECV Allocation Rules
