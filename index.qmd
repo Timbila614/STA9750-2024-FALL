@@ -1,4 +1,16 @@
 ---
-title: "Timbila Nikiema"
+title: "It's me Timbila Nikiema"
 ---
-# **This is me...***
+
+```{r}
+#| echo: false
+#| warning: false
+x<-1:100
+y<- 100-(x**.1)
+library("ggplot2")
+ggplot()+
+  geom_line(aes(x = x, y=y), color = 'blue',size =1.7)+
+  labs(title = "Level of sanity",x= "Time",y = "Sanity")+
+  theme_light()
+
+```
