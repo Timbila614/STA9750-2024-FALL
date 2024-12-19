@@ -1,0 +1,248 @@
+# STA/OPR 9750 - Final Project
+
+### **Group 2**: *Subway Surfers*
+
+#### Author: Timbila Nikiema
+
+### Question: **What is the relationship between ridership and wait times, and does higher ridership correlate with longer wait times?**
+
+For this project I will be exploring the relationship between subway ridership and wait times to determine if higher ridership lead to longer wait times.
+
+To do so I will analyze two key datasets from the MTA:
+
+1. [MTA Subway Customer Journey-Focused Metrics: Beginning 2020]("https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-Beginn/4apg-4kt9/data_preview) 
+2. [MTA Subway Customer Journey-Focused Metrics: Beginning 2015](https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-2015-2/r7qk-6tcy/data_preview)
+
+Our analysis focuses on Additional Platform Time (APT), which captures the extra time passengers spend waiting on the platform beyond the scheduled wait. This metric provides a clear indication of the operational strain during varying levels of ridership.
+
+In this study, we’ll explore the impact of increased ridership on wait times, assess operational adjustments, and identify trends across different subway lines. Let’s dive into the data and see what it reveals about the dynamics of subway operations and passenger experience.
+
+### 1. Data Acquisition
+
+We’ll start by downloading the MTA Customer Journey data from 2015 to 2024 Year-To-Date. This data provides information about number of passengers per month at each subway station.
+
+```{r data read}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# We will first load the necessary libraries
+library(tidyverse)
+library(lubridate)
+library(gganimate)
+library(dplyr)
+library(tidyr)
+library(DT)
+
+source <- "https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-Beginn/4apg-4kt9/data_preview"
+url_2020 <- "https://data.ny.gov/resource/4apg-4kt9.csv" # Data after 2020
+destination_file_2020 <- "data_2020.csv"
+
+source_2015 <- "https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-2015-2/r7qk-6tcy/data_preview"
+url_2019 <- "https://data.ny.gov/resource/r7qk-6tcy.csv" # Data before 2019
+destination_file_2019 <- "data_2019.csv"
+
+# Read the datasets
+data_2020 <- read_csv("data_2020.csv")
+data_2019 <- read_csv("data_2019.csv")
+
+# Let's append these data set into one
+combined_data <- bind_rows(data_2019, data_2020)
+
+# Save the combined dataset to a new file
+write_csv(combined_data, "MTAdata.csv")
+
+# Print confirmation
+print("Data has been successfully combined and saved to 'MTAdata.csv'.")
+```
+
+### 2. Data Cleaning and Processing
+
+Data cleaning is a crucial step in any data science project because it ensures that the data is formatted correctly and any errors or inconsistencies are addressed. 
+
+```{r data cleaning}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# Read the data
+MTAdata <- read.csv("MTAdata.csv", header = TRUE, stringsAsFactors = FALSE)
+
+# Rename Columns
+colnames(MTAdata) <- c("MONTH", "DIVISION", "LINE", "PERIOD", "PASSENGERS", 
+                       "ADDL_PLATFORM_TIME", "ADDL_TRAIN_TIME", "TOTAL_PLATFORM_TIME", 
+                       "TOTAL_TRAIN_TIME", "OVER_5_MINS", "OVER_5_MINS_PCT", "JOURNEY_TIME")
+
+# Convert to the proper values
+MTAdata <- MTAdata |>
+  mutate(
+    PASSENGERS = as.numeric(gsub(",", "", PASSENGERS)),                    # Remove commas and convert to numeric
+    TOTAL_PLATFORM_TIME = as.numeric(gsub(",", "", TOTAL_PLATFORM_TIME)),  # Remove commas
+    TOTAL_TRAIN_TIME = as.numeric(gsub(",", "", TOTAL_TRAIN_TIME)),        # Remove commas
+    OVER_5_MINS = as.numeric(gsub(",", "", OVER_5_MINS)))
+
+# Convert MONTH to Date type, extract Year and Month, and add COVID flag
+MTAdata <- MTAdata |>
+  mutate(
+    MONTH = as.Date(MONTH, format = "%Y-%m-%d"),                 # Convert to date format
+    YEAR = as.numeric(format(MONTH, "%Y")),                      # Extract the year
+    COVID_FLAG = case_when(
+      YEAR <= 2019 ~ "Pre-COVID",                                # Pre-COVID: before 2019
+      YEAR %in% c(2020, 2021) ~ "COVID",                         # COVID: 2020 and 2021
+      YEAR > 2021 ~ "Post-COVID" )) |>                           # Post-COVID: after 2021
+  filter(LINE != "Systemwide")                                   # Exclude "Systemwide" as an outlier
+
+
+# Display the data with the new columns
+datatable(MTAdata,
+          options = list(pageLength = 10, autoWidth = FALSE),
+          caption = "Table 1: NYC Subway Customer Journey (2015 - 2024)") |>
+  formatRound(columns = c("ADDL_PLATFORM_TIME", "ADDL_TRAIN_TIME", "JOURNEY_TIME"), digits = 2) |>
+  formatRound(columns = c("PASSENGERS", "OVER_5_MINS","TOTAL_PLATFORM_TIME", "TOTAL_TRAIN_TIME"), digits = 0) |>
+  formatPercentage(columns = c("OVER_5_MINS_PCT"), digits = 2)
+
+```
+
+#### Ridership Trend Analysis by Line
+```{r rodership trend}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# Aggregate ridership data by line and COVID period
+ridership_trend <- MTAdata |>
+  group_by(LINE, COVID_FLAG) |>
+  summarise(total_ridership = sum(PASSENGERS, na.rm = TRUE)) |>
+  ungroup()
+
+# Plot the ridership trend by line and COVID period
+trend_plot <- ggplot(ridership_trend, aes(x = reorder(LINE, total_ridership), y = total_ridership, fill = COVID_FLAG)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Ridership Trend by Line: Pre-COVID vs Post-COVID",
+    x = "Line",
+    y = "Total Ridership",
+    fill = "COVID Period"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(labels = scales::comma)  # Format y-axis labels with commas
+
+print(trend_plot)
+
+ggsave("ridership_plot.png", plot = trend_plot, width = 10, height = 6, dpi = 300)
+```
+
+1. **Ridership Distribution**:
+Lines like **1, 6, and 4** seem to have the highest total ridership, indicating they serve highly trafficked routes or densely populated areas.
+Lines like **S (shuttle)** have the lowest ridership, which aligns with their limited service area and purpose.
+2. **Relative Differences**: A significant gap exists between the highest-ridership lines (e.g., 1, 6, 4) and mid-tier lines (e.g., Q, R, or C). This suggests uneven passenger distribution, possibly due to geographic and demographic factors.
+
+3.* **Possible Factors**:
+**Population density near stations**: High ridership lines likely pass through more densely populated or commercially active areas.
+**Connectivity and transfers**: Lines with high ridership might connect to major transit hubs or offer convenient transfers.
+Service frequency: Lines with higher frequencies and reliability might attract more riders.
+
+#### Average Wait Time Analysis by Line
+```{r average wait time}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# Aggregate platform time data by line and COVID period
+platform_time_trend <- MTAdata |>
+  group_by(LINE, COVID_FLAG) |>
+  summarise(avg_platform_time = mean(ADDL_PLATFORM_TIME, na.rm = TRUE)) |>
+  ungroup()
+
+# Plot the platform time trend by line and COVID period
+platform_time_plot <- ggplot(platform_time_trend, aes(x = reorder(LINE, avg_platform_time), y = avg_platform_time, fill = COVID_FLAG)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Average Platform Time Trend by Line: Pre-COVID vs Post-COVID",
+    x = "Line",
+    y = "Average Platform Time (Minutes)",
+    fill = "COVID Period"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+print(platform_time_plot)
+
+ggsave("avg_time_plot.png", plot = platform_time_plot, width = 12, height = 8, dpi = 300)
+```
+1. **Line Variability**:
+* The **S (Shuttle)** lines (e.g., S 42nd, S Fkn, S Rock) exhibit the lowest average wait times across all categories, consistent with their shorter routes and focused operations.
+* Lines like **B, D, M, and R** show consistently longer wait times, potentially due to their more complex routes or higher congestion levels.
+
+2. **Stability Across Time Periods**:
+* For most lines, the bars across the three categories are relatively close in height, suggesting that average wait times have not fluctuated significantly across these periods.
+* Some lines, like **C and R**, show noticeable variability, which might reflect operational adjustments or demand changes during different periods.
+
+3. General Trends:
+* Lines with inherently longer routes or complex service structures, such as R or B, tend to have higher average wait times, which could reflect greater service challenges or higher ridership levels.
+* Lines like **1, 3, and 6** with high ridership but simpler route structures appear to maintain moderate wait times.
+
+The longer wait times for specific lines might indicate service frequency issues, delays due to congestion, or infrastructure limitations.
+Shorter wait times on shuttle lines suggest efficient service due to lower demand and simpler operations.
+
+
+#### Correlation Analysis
+```{r correlation}
+#| warning: false
+#| message: false
+#| code-fold: true
+
+# Aggregate data to calculate total ridership and average platform wait time by month
+correlation_data <- MTAdata |>
+  group_by(MONTH) |>
+  summarise(
+    total_ridership = sum(PASSENGERS, na.rm = TRUE),
+    avg_platform_time = mean(ADDL_PLATFORM_TIME, na.rm = TRUE)
+  )
+
+# Calculate the correlation coefficient
+correlation <- cor(correlation_data$total_ridership, correlation_data$avg_platform_time, use = "complete.obs")
+
+# Print the correlation coefficient
+print(paste("Correlation between Total Ridership and Average Platform Time:", round(correlation, 2)))
+
+# Perform a hypothesis test for correlation significance
+cor_test <- cor.test(correlation_data$total_ridership, correlation_data$avg_platform_time, use = "complete.obs")
+
+print(cor_test)
+
+# Visualization of the relationship
+library(ggplot2)
+correlation_plot <- ggplot(correlation_data, aes(x = total_ridership, y = avg_platform_time)) +
+  geom_point(color = "blue", size = 3) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(
+    title = "Relationship between Total Ridership and Average Platform Time",
+    subtitle = paste("Correlation:", round(correlation, 2)),
+    x = "Total Ridership",
+    y = "Average Platform Time (Minutes)"
+  ) +
+  theme_minimal()
+
+print(correlation_plot)
+
+ggsave("correlation_plot.png", plot = correlation_plot, width = 10, height = 6, dpi = 300)
+```
+
+
+1. **Positive Correlation**:
+There is a slight upward trend in the regression line, indicating a positive correlation between ridership and average wait times. 
+As ridership increases, average wait times also tend to increase slightly.
+
+2. **Dispersion of Data**:
+The data points are somewhat scattered around the regression line, suggesting variability in wait times even for similar ridership levels.
+Some lines may handle higher ridership efficiently, while others experience delays.
+
+3. **Confidence Interval**:
+The positive correlation (Though **no strong**) suggests that higher ridership may lead to operational challenges, resulting in longer wait times.
+Efficiency Improvements: Lines operating below the regression line may provide insights into operational efficiencies that could be applied to others.
+
+### Conclusion
+
+While higher ridership has the potential to correlate with longer wait times due to increased demand and operational strain, effective management strategies can mitigate this impact. By implementing measures like adjusting train frequencies, enhancing infrastructure, and optimizing crew deployment, transit authorities can maintain or even reduce wait times amidst rising passenger volumes.

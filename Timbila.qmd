@@ -1,0 +1,70 @@
+---
+title: "Individual"
+author: "Timbila Nikiema"
+format: html
+---
+
+For this project I will be exploring the relationship between subway ridership and wait times to determine if higher ridership lead to longer wait times.
+
+To do so I will analyze two key datasets from the MTA:
+
+1. [MTA Subway Customer Journey-Focused Metrics: Beginning 2020]("https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-Beginn/4apg-4kt9/data_preview) 
+2. [MTA Subway Customer Journey-Focused Metrics: Beginning 2015](https://data.ny.gov/Transportation/MTA-Subway-Customer-Journey-Focused-Metrics-2015-2/r7qk-6tcy/data_preview)
+
+Our analysis focuses on Additional Platform Time (APT), which captures the extra time passengers spend waiting on the platform beyond the scheduled wait. This metric provides a clear indication of the operational strain during varying levels of ridership.
+
+In this study, we’ll explore the impact of increased ridership on wait times, assess operational adjustments, and identify trends across different subway lines. Let’s dive into the data and see what it reveals about the dynamics of subway operations and passenger experience.
+
+#### Ridership Trend Analysis by Line
+
+Graph 1: ![Ridership trend](ridership_plot.png)
+
+1. **Ridership Distribution**:
+Lines like **1, 6, and 4** seem to have the highest total ridership, indicating they serve highly trafficked routes or densely populated areas.
+Lines like **S (shuttle)** have the lowest ridership, which aligns with their limited service area and purpose.
+2. **Relative Differences**: A significant gap exists between the highest-ridership lines (e.g., 1, 6, 4) and mid-tier lines (e.g., Q, R, or C). This suggests uneven passenger distribution, possibly due to geographic and demographic factors.
+
+3.* **Possible Factors**:
+**Population density near stations**: High ridership lines likely pass through more densely populated or commercially active areas.
+**Connectivity and transfers**: Lines with high ridership might connect to major transit hubs or offer convenient transfers.
+Service frequency: Lines with higher frequencies and reliability might attract more riders.
+
+#### Average Wait Time Analysis by Line
+
+Graph 2: ![Average wait time](avg_time_plot.png)
+
+1. **Line Variability**:
+* The **S (Shuttle)** lines (e.g., S 42nd, S Fkn, S Rock) exhibit the lowest average wait times across all categories, consistent with their shorter routes and focused operations.
+* Lines like **B, D, M, and R** show consistently longer wait times, potentially due to their more complex routes or higher congestion levels.
+
+2. **Stability Across Time Periods**:
+* For most lines, the bars across the three categories are relatively close in height, suggesting that average wait times have not fluctuated significantly across these periods.
+* Some lines, like **C and R**, show noticeable variability, which might reflect operational adjustments or demand changes during different periods.
+
+3. General Trends:
+* Lines with inherently longer routes or complex service structures, such as R or B, tend to have higher average wait times, which could reflect greater service challenges or higher ridership levels.
+* Lines like **1, 3, and 6** with high ridership but simpler route structures appear to maintain moderate wait times.
+
+The longer wait times for specific lines might indicate service frequency issues, delays due to congestion, or infrastructure limitations.
+Shorter wait times on shuttle lines suggest efficient service due to lower demand and simpler operations.
+
+
+#### Correlation Analysis
+
+Graph 3: ![Correlation](correlation_plot.png)
+
+1. **Positive Correlation**:
+There is a slight upward trend in the regression line, indicating a positive correlation between ridership and average wait times. 
+As ridership increases, average wait times also tend to increase slightly.
+
+2. **Dispersion of Data**:
+The data points are somewhat scattered around the regression line, suggesting variability in wait times even for similar ridership levels.
+Some lines may handle higher ridership efficiently, while others experience delays.
+
+3. **Confidence Interval**:
+The positive correlation (Though **no strong**) suggests that higher ridership may lead to operational challenges, resulting in longer wait times.
+Efficiency Improvements: Lines operating below the regression line may provide insights into operational efficiencies that could be applied to others.
+
+### Conclusion
+
+While higher ridership has the potential to correlate with longer wait times due to increased demand and operational strain, effective management strategies can mitigate this impact. By implementing measures like adjusting train frequencies, enhancing infrastructure, and optimizing crew deployment, transit authorities can maintain or even reduce wait times amidst rising passenger volumes.
